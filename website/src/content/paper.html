@@ -378,7 +378,7 @@ class="math inline">\beta = 0</span>) is leakage or sampling noise. The
 is the latent state <span class="math inline">s_t</span> itself
 (optionally observed with noise; noiselessly here). Labels are the
 overlapping forward sums of Eq. <a href="#eq:label"
-data-reference-type="eqref" data-reference="eq:label">[eq:label]</a>; a
+data-reference-type="eqref" data-reference="eq:label">(label)</a>; a
 binary label <span class="math inline">\mathbf{1}\{y_t &gt; 0\}</span>
 is also produced for the classification arm. Crucially, all features are
 <em>exogenous</em>: none is computed from past returns. This isolates
@@ -406,7 +406,7 @@ observation-noise standard deviation (<span class="math inline">\nu =
 0</span> here). For noise-only configurations <span
 class="math inline">\mathrm{IC}_{\mathrm{pop}} = 0</span> exactly. We
 invert Eq. <a href="#eq:popic" data-reference-type="eqref"
-data-reference="eq:popic">[eq:popic]</a> to calibrate <span
+data-reference="eq:popic">(popic)</a> to calibrate <span
 class="math inline">\beta</span> so that every genuine-signal arm has
 the same population IC of <span class="math inline">0.10</span>
 regardless of its persistence <span class="math inline">\phi_s</span>—so
@@ -512,7 +512,7 @@ interaction</h2>
 <p>Table <a href="#tab:interaction" data-reference-type="ref"
 data-reference="tab:interaction">1</a> is the headline measurement: the
 phantom skill (mean leak, Eq. <a href="#eq:leak"
-data-reference-type="eqref" data-reference="eq:leak">[eq:leak]</a>) of
+data-reference-type="eqref" data-reference="eq:leak">(leak)</a>) of
 naive shuffled <span class="math inline">k</span>-fold with a random
 forest, on features with <em>exactly zero</em> true predictive power,
 across the <span class="math inline">(h, \phi)</span> grid. Figure <a
@@ -536,16 +536,14 @@ product region is catastrophically biased. In every cell with <span
 class="math inline">h \ge 5</span> and <span class="math inline">\phi
 \ge 0.9</span> all <span class="math inline">16</span> repetitions leak
 positive.</caption>
-<thead>
-<tr>
-<th style="text-align: left;"></th>
-<th colspan="5" style="text-align: center;">feature persistence <span
-class="math inline">\phi</span></th>
-</tr>
-</thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><span>2-6</span> horizon</td>
+<td style="text-align: left;"></td>
+<td colspan="5" style="text-align: center;">feature persistence <span
+class="math inline">\phi</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">horizon</td>
 <td style="text-align: center;"><span class="math inline">0</span></td>
 <td style="text-align: center;"><span
 class="math inline">0.3</span></td>
@@ -701,19 +699,16 @@ worst cell occurs at <span class="math inline">h=1</span>, where labels
 do not overlap and the leakage mechanism is absent—i.e. those worst
 cells are sampling noise, not residual leakage. RF <span
 class="math inline">=</span> random forest.</caption>
-<thead>
-<tr>
-<th style="text-align: left;"></th>
-<th colspan="2" style="text-align: center;">worst cell over grid</th>
-<th colspan="2" style="text-align: center;">at <span
-class="math inline">h{=}20</span>, <span
-class="math inline">\phi{=}0.97</span></th>
-</tr>
-</thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><span>2-3</span>(lr)<span>4-5</span>
-Splitter</td>
+<td style="text-align: left;"></td>
+<td colspan="2" style="text-align: center;">worst cell over grid</td>
+<td colspan="2" style="text-align: center;">at <span
+class="math inline">h{=}20</span>, <span
+class="math inline">\phi{=}0.97</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Splitter</td>
 <td style="text-align: center;">RF</td>
 <td style="text-align: center;">ridge</td>
 <td style="text-align: center;">RF</td>
@@ -944,18 +939,15 @@ records per cell): fraction of available training candidates retained
 fold-level CV estimate, and the across-repetition standard deviation of
 the pooled CV estimate within an <span
 class="math inline">(h,\phi)</span> cell, averaged over cells.</caption>
-<thead>
-<tr>
-<th style="text-align: left;"></th>
-<th style="text-align: center;"></th>
-<th colspan="2" style="text-align: center;">random forest</th>
-<th colspan="2" style="text-align: center;">ridge</th>
-</tr>
-</thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><span>3-4</span>(lr)<span>5-6</span>
-Splitter</td>
+<td style="text-align: left;"></td>
+<td style="text-align: center;"></td>
+<td colspan="2" style="text-align: center;">random forest</td>
+<td colspan="2" style="text-align: center;">ridge</td>
+</tr>
+<tr>
+<td style="text-align: left;">Splitter</td>
 <td style="text-align: center;">train kept</td>
 <td style="text-align: center;">fold std</td>
 <td style="text-align: center;">rep. std</td>
