@@ -1,0 +1,219 @@
+% =====================================================================
+% refs.bib — "How Much Does Purging Actually Fix? A Controlled
+% Quantification of Overlap Leakage in Time-Series Cross-Validation"
+% Primary: q-fin.CP, cross-list: stat.ML
+%
+% All entries verified against publisher pages / RePEc / DBLP /
+% Project Euclid / ACM DL / OUP, June 2026. Caveats are flagged
+% inline with "% NOTE:".
+% =====================================================================
+
+% ---------------------------------------------------------------------
+% Purged CV / backtest overfitting (financial ML line)
+% ---------------------------------------------------------------------
+
+@book{lopezdeprado2018advances,
+  author    = {L{\'o}pez de Prado, Marcos},
+  title     = {Advances in Financial Machine Learning},
+  publisher = {Wiley},
+  address   = {Hoboken, NJ},
+  year      = {2018},
+  isbn      = {978-1-119-48208-6},
+  note      = {Ch.~7, ``Cross-Validation in Finance'': why $k$-fold CV fails in finance; purged $k$-fold CV and embargo}
+}
+
+@article{bailey2017probability,
+  author  = {Bailey, David H. and Borwein, Jonathan M. and L{\'o}pez de Prado, Marcos and Zhu, Qiji Jim},
+  title   = {The Probability of Backtest Overfitting},
+  journal = {Journal of Computational Finance},
+  year    = {2017},
+  volume  = {20},
+  number  = {4},
+  pages   = {39--69},
+  doi     = {10.21314/JCF.2016.322}
+}
+
+@article{bailey2014pseudo,
+  author  = {Bailey, David H. and Borwein, Jonathan M. and L{\'o}pez de Prado, Marcos and Zhu, Qiji Jim},
+  title   = {Pseudo-Mathematics and Financial Charlatanism: The Effects of Backtest Overfitting on Out-of-Sample Performance},
+  journal = {Notices of the American Mathematical Society},
+  year    = {2014},
+  volume  = {61},
+  number  = {5},
+  pages   = {458--471},
+  doi     = {10.1090/noti1105}
+}
+
+% ---------------------------------------------------------------------
+% Cross-validation under dependence (statistics / econometrics line)
+% ---------------------------------------------------------------------
+
+@article{arlot2010survey,
+  author  = {Arlot, Sylvain and Celisse, Alain},
+  title   = {A Survey of Cross-Validation Procedures for Model Selection},
+  journal = {Statistics Surveys},
+  year    = {2010},
+  volume  = {4},
+  pages   = {40--79},
+  doi     = {10.1214/09-SS054}
+}
+
+@article{burman1994crossvalidatory,
+  author  = {Burman, Prabir and Chow, Edmond and Nolan, Deborah},
+  title   = {A Cross-Validatory Method for Dependent Data},
+  journal = {Biometrika},
+  year    = {1994},
+  volume  = {81},
+  number  = {2},
+  pages   = {351--358},
+  doi     = {10.1093/biomet/81.2.351}
+}
+
+@article{racine2000consistent,
+  author  = {Racine, Jeffrey S.},
+  title   = {Consistent Cross-Validatory Model-Selection for Dependent Data: $hv$-Block Cross-Validation},
+  journal = {Journal of Econometrics},
+  year    = {2000},
+  volume  = {99},
+  number  = {1},
+  pages   = {39--61},
+  doi     = {10.1016/S0304-4076(00)00030-0}
+}
+
+% ---------------------------------------------------------------------
+% Time-series forecast evaluation (ML line; incl. the pro-CV counterpoint)
+% ---------------------------------------------------------------------
+
+@article{bergmeir2012use,
+  author  = {Bergmeir, Christoph and Ben{\'i}tez, Jos{\'e} M.},
+  title   = {On the Use of Cross-Validation for Time Series Predictor Evaluation},
+  journal = {Information Sciences},
+  year    = {2012},
+  volume  = {191},
+  pages   = {192--213},
+  doi     = {10.1016/j.ins.2011.12.028}
+}
+
+@article{bergmeir2018note,
+  author  = {Bergmeir, Christoph and Hyndman, Rob J. and Koo, Bonsoo},
+  title   = {A Note on the Validity of Cross-Validation for Evaluating Autoregressive Time Series Prediction},
+  journal = {Computational Statistics \& Data Analysis},
+  year    = {2018},
+  volume  = {120},
+  pages   = {70--83},
+  doi     = {10.1016/j.csda.2017.11.003},
+  note    = {Shows standard $k$-fold CV is valid for purely autoregressive models with uncorrelated errors --- the key counterpoint}
+}
+
+@article{cerqueira2020evaluating,
+  author  = {Cerqueira, Vitor and Torgo, Lu{\'i}s and Mozeti{\v{c}}, Igor},
+  title   = {Evaluating Time Series Forecasting Models: An Empirical Study on Performance Estimation Methods},
+  journal = {Machine Learning},
+  year    = {2020},
+  volume  = {109},
+  pages   = {1997--2028},
+  doi     = {10.1007/s10994-020-05910-7}
+}
+
+@article{tashman2000out,
+  author  = {Tashman, Leonard J.},
+  title   = {Out-of-Sample Tests of Forecasting Accuracy: An Analysis and Review},
+  journal = {International Journal of Forecasting},
+  year    = {2000},
+  volume  = {16},
+  number  = {4},
+  pages   = {437--450},
+  doi     = {10.1016/S0169-2070(00)00065-0}
+}
+
+% ---------------------------------------------------------------------
+% Leakage in machine learning
+% ---------------------------------------------------------------------
+
+@article{kaufman2012leakage,
+  author  = {Kaufman, Shachar and Rosset, Saharon and Perlich, Claudia and Stitelman, Ori},
+  title   = {Leakage in Data Mining: Formulation, Detection, and Avoidance},
+  journal = {ACM Transactions on Knowledge Discovery from Data},
+  year    = {2012},
+  volume  = {6},
+  number  = {4},
+  pages   = {15:1--15:21},
+  doi     = {10.1145/2382577.2382579}
+}
+
+@inproceedings{hammerla2015lets,
+  author    = {Hammerla, Nils Y. and Pl{\"o}tz, Thomas},
+  title     = {Let's (Not) Stick Together: Pairwise Similarity Biases Cross-Validation in Activity Recognition},
+  booktitle = {Proceedings of the 2015 ACM International Joint Conference on Pervasive and Ubiquitous Computing (UbiComp '15)},
+  year      = {2015},
+  pages     = {1041--1051},
+  publisher = {ACM},
+  address   = {New York, NY},
+  doi       = {10.1145/2750858.2807551}
+}
+
+@article{kapoor2023leakage,
+  author  = {Kapoor, Sayash and Narayanan, Arvind},
+  title   = {Leakage and the Reproducibility Crisis in Machine-Learning-Based Science},
+  journal = {Patterns},
+  year    = {2023},
+  volume  = {4},
+  number  = {9},
+  pages   = {100804},
+  doi     = {10.1016/j.patter.2023.100804}
+}
+
+% ---------------------------------------------------------------------
+% Overlapping-observation econometrics (classical anchor)
+% ---------------------------------------------------------------------
+
+@article{hansen1980forward,
+  author  = {Hansen, Lars Peter and Hodrick, Robert J.},
+  title   = {Forward Exchange Rates as Optimal Predictors of Future Spot Rates: An Econometric Analysis},
+  journal = {Journal of Political Economy},
+  year    = {1980},
+  volume  = {88},
+  number  = {5},
+  pages   = {829--853},
+  doi     = {10.1086/260910}
+}
+
+@article{hodrick1992dividend,
+  author  = {Hodrick, Robert J.},
+  title   = {Dividend Yields and Expected Stock Returns: Alternative Procedures for Inference and Measurement},
+  journal = {The Review of Financial Studies},
+  year    = {1992},
+  volume  = {5},
+  number  = {3},
+  pages   = {357--386},
+  doi     = {10.1093/rfs/5.3.357}
+}
+
+@article{brittenjones2011improved,
+  author  = {Britten-Jones, Mark and Neuberger, Anthony and Nolte, Ingmar},
+  title   = {Improved Inference in Regression with Overlapping Observations},
+  journal = {Journal of Business Finance \& Accounting},
+  year    = {2011},
+  volume  = {38},
+  number  = {5--6},
+  pages   = {657--683},
+  doi     = {10.1111/j.1468-5957.2011.02244.x}
+}
+
+% ---------------------------------------------------------------------
+% Sample-split mining (optional)
+% ---------------------------------------------------------------------
+
+% NOTE: Verified as a working paper only; no journal publication of this
+% specific paper could be confirmed (their related 2015 Econometrica
+% article on OOS/Wald equivalence is a different paper). Cite as
+% working paper.
+@techreport{hansen2012choice,
+  author      = {Hansen, Peter Reinhard and Timmermann, Allan},
+  title       = {Choice of Sample Split in Out-of-Sample Forecast Evaluation},
+  institution = {European University Institute},
+  type        = {Economics Working Paper},
+  number      = {ECO 2012/10},
+  year        = {2012},
+  note        = {Also circulated as CREATES Research Paper 2012-43, Aarhus University}
+}
