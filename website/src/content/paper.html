@@ -1,0 +1,1456 @@
+<h1 id="introduction">Introduction</h1>
+<p>When the label of a financial prediction problem is a forward <span
+class="math inline">h</span>-period return, consecutive training samples
+share <span class="math inline">h-1</span> of their <span
+class="math inline">h</span> label returns. <span class="citation"
+data-cites="lopezdeprado2018advances">López de Prado (2018)</span>
+argues that this overlap leaks information between cross-validation
+folds, inflates measured performance, and is one reason backtested
+strategies fail in production; his prescription—purged <span
+class="math inline">k</span>-fold cross-validation with an embargo—has
+become standard practice in financial machine learning, shipped in
+widely used open-source libraries and adopted essentially on textbook
+authority. The supporting evidence, however, is illustrative rather than
+quantitative: how large the bias actually is, what data properties
+control it, and how much of it each component of the remedy (contiguous
+folds, purging, embargo) removes have not been measured.</p>
+<p>The question is sharper than it looks, because a neighboring
+literature says the opposite. <span class="citation"
+data-cites="bergmeir2018note">Bergmeir et al. (2018)</span> prove that
+standard <span class="math inline">k</span>-fold cross-validation is
+<em>valid</em> for purely autoregressive prediction with uncorrelated
+errors, and empirical comparisons <span class="citation"
+data-cites="bergmeir2012use cerqueira2020evaluating">(Bergmeir and
+Benítez 2012; Cerqueira et al. 2020)</span> repeatedly find vanilla or
+blocked CV competitive with the out-of-sample evaluations <span
+class="citation" data-cites="tashman2000out">(Tashman 2000)</span> that
+practitioners trust. If naive CV is provably fine for time series in
+those settings, the case for aggressive purging must rest on a specific
+mechanism that those settings lack—and identifying that mechanism is a
+prerequisite for knowing when purging is necessary, when it is harmless
+insurance, and when it wastes data.</p>
+<p>This paper measures the mechanism directly.<a href="#fn1"
+class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> We
+build a simulation in which the true predictability of every feature is
+known exactly—including the case of exactly zero—and define leakage
+operationally: the cross-validated skill estimate minus the true forward
+skill of the very same fitted models, measured on an untouched
+continuation of the series. Because the truth is known, “phantom skill”
+is not an interpretation but a number, with a confidence interval, as a
+function of the label horizon <span class="math inline">h</span> and the
+feature persistence <span class="math inline">\phi</span>.</p>
+<p>The headline result is an interaction that reconciles the two
+literatures. Overlap alone does not create phantom skill: with serially
+independent features, naive shuffled <span
+class="math inline">k</span>-fold shows no optimistic bias in IC at any
+horizon we test. Persistence alone does not create it either: with
+non-overlapping labels (<span class="math inline">h=1</span>), even
+features with <span class="math inline">\phi=0.97</span> produce
+nothing. The leak requires the <em>product</em>: a persistent feature
+lets the model locate a test sample’s temporal neighbors in feature
+space, and the overlapping label tells it what those neighbors’ labels
+(mostly) were. Autoregressive setups of the Bergmeir line live on the
+two harmless axes; <span class="math inline">h</span>-period forward
+labels with persistent predictors—the standard financial
+configuration—live in the interaction region, where we measure phantom
+information coefficients up to <span class="math inline">+0.56</span>
+for a random forest under a null with exactly zero true signal. Both
+literatures are right in their own regime, and the boundary between the
+regimes is the product of overlap and persistence.</p>
+<p>Measuring the remedy against the same ground truth produces three
+findings that practitioners may find uncomfortable in opposite
+directions. First, <em>blocked</em> <span
+class="math inline">k</span>-fold—contiguous test blocks, no purging at
+all—already removes nearly all of the mean bias; at <span
+class="math inline">h \ll T</span>, purging’s marginal contribution to
+calibration is second-order, and what it actually buys is the worst case
+(zero overlapping pairs by construction), not the average. Second, the
+<em>embargo</em> bought nothing anywhere in our design: purged <span
+class="math inline">k</span>-fold is already calibrated at zero embargo
+in every arm, including genuine signals with persistence up to <span
+class="math inline">0.995</span>, and the embargo sweep is flat. We are
+explicit about scope: our features are exogenous AR(1) processes, and
+the case the embargo exists for—features <em>derived from</em> past
+returns, whose serial dependence echoes the label beyond the overlap
+window—is deliberately out of scope here. Third, the place where purging
+pays unambiguously is <em>model selection</em>: scored by naive CV, the
+model menu is ranked by leakage-harvesting ability rather than true
+skill, and the worst true model wins every time; scored by purged CV,
+the truly best model wins most often, and the deployed skill more than
+triples.</p>
+<h4 id="contributions.">Contributions.</h4>
+<ol>
+<li><p>A reproducible known-truth framework for leakage measurement: a
+data-generating process with overlapping forward labels and AR(1)
+features whose population information coefficient is available in closed
+form (including exactly zero); a forward-truth protocol that scores each
+fold’s fitted model on an untouched continuation separated by an <span
+class="math inline">h</span>-step gap; and from-scratch splitter
+implementations whose zero-overlap property is verified by an exhaustive
+train/test pair checker (Sections <a href="#sec:splitters"
+data-reference-type="ref" data-reference="sec:splitters">3</a>–<a
+href="#sec:framework" data-reference-type="ref"
+data-reference="sec:framework">4</a>).</p></li>
+<li><p>A quantification of phantom skill under the null as a function of
+<span class="math inline">(h,\phi)</span>, showing it is an
+interaction—absent at <span class="math inline">h=1</span> for any <span
+class="math inline">\phi</span> and at <span
+class="math inline">\phi=0</span> for any <span
+class="math inline">h</span>, up to <span
+class="math inline">+0.564\pm0.048</span> IC when both are present—and
+model-dependent (random forest absorbs roughly three times more of the
+leak than ridge; the same pattern holds for classification AUC). This
+measurement offers, to our knowledge, the first joint account of the
+<span class="citation" data-cites="bergmeir2018note">Bergmeir et al.
+(2018)</span> validity results and the financial-ML failure mode—by
+analogy rather than replication: the Bergmeir-line experiments use
+endogenous lagged-target features, a class our embargo discussion
+declares out of scope, so we explain <em>why</em> their settings sit on
+the harmless axes rather than re-run them (Section <a
+href="#sec:interaction" data-reference-type="ref"
+data-reference="sec:interaction">6.1</a>).</p></li>
+<li><p>A decomposition of the remedy: contiguous blocks alone remove
+nearly all mean bias; purging adds the worst-case guarantee at a <span
+class="math inline">1.2\%</span> data cost; the embargo adds nothing for
+exogenous features, a deliberately disclosed negative result
+(Sections <a href="#sec:blocking" data-reference-type="ref"
+data-reference="sec:blocking">6.2</a>–<a href="#sec:embargo"
+data-reference-type="ref"
+data-reference="sec:embargo">6.3</a>).</p></li>
+<li><p>A cost accounting—training data discarded, CV-estimate
+dispersion, walk-forward’s data efficiency—showing the dispersion price
+of the honest procedure comes from contiguity, not from the purge
+(Section <a href="#sec:costs" data-reference-type="ref"
+data-reference="sec:costs">6.4</a>).</p></li>
+<li><p>A demonstration that the bias becomes a wrong <em>decision</em>
+at the model-selection stage, and that purged CV repairs the decision,
+not just the estimate: true forward IC of the selected model <span
+class="math inline">0.012 \to 0.042</span> against an oracle of <span
+class="math inline">0.069</span> (Section <a href="#sec:selection"
+data-reference-type="ref"
+data-reference="sec:selection">6.5</a>).</p></li>
+</ol>
+<h1 id="sec:related">Related work</h1>
+<h4 id="cross-validation-under-dependence.">Cross-validation under
+dependence.</h4>
+<p>The difficulties serial dependence creates for cross-validation were
+identified long before financial machine learning popularized them.
+<span class="citation" data-cites="burman1994crossvalidatory">Burman et
+al. (1994)</span> introduced <span class="math inline">h</span>-block
+cross-validation, deleting the <span class="math inline">h</span>
+observations on either side of each test point so that the training set
+is approximately independent of it, and <span class="citation"
+data-cites="racine2000consistent">Racine (2000)</span> extended this to
+<span class="math inline">hv</span>-block cross-validation, additionally
+removing a contiguous validation block and proving consistency of model
+selection for general stationary processes. Both constructions are
+direct ancestors of the purging-and-embargo procedure now standard in
+finance, yet neither paper quantifies how much optimistic bias the
+deleted observations would otherwise contribute for a given dependence
+structure—<span class="math inline">h</span> is treated as a tuning
+constant, not a measured requirement. The broader theory of
+cross-validation, including its known failure modes, is surveyed by
+<span class="citation" data-cites="arlot2010survey">Arlot and Celisse
+(2010)</span>, who note that the i.i.d. assumption is load-bearing for
+most risk-estimation guarantees and that corrections for dependent data
+remain comparatively underdeveloped.</p>
+<h4 id="evaluation-protocols-for-time-series-prediction.">Evaluation
+protocols for time-series prediction.</h4>
+<p>In forecasting, the default response to dependence has been
+out-of-sample (walk-forward) evaluation <span class="citation"
+data-cites="tashman2000out">(Tashman 2000)</span>. <span
+class="citation" data-cites="bergmeir2012use">Bergmeir and Benítez
+(2012)</span> compared blocked and standard cross-validation against
+out-of-sample evaluation across simulated and real series and found,
+perhaps surprisingly, that cross-validation variants were competitive
+and often preferable on efficiency grounds. <span class="citation"
+data-cites="bergmeir2018note">Bergmeir et al. (2018)</span> sharpened
+this into a theoretical result: for purely autoregressive models with
+uncorrelated errors, standard <span class="math inline">k</span>-fold
+cross-validation is <em>valid</em>—the feared temporal leakage does not
+materialize. Large-scale comparisons by <span class="citation"
+data-cites="cerqueira2020evaluating">Cerqueira et al. (2020)</span>
+complicate the picture further, finding that the best protocol depends
+on series length and stationarity. This line of work sits in unresolved
+tension with financial practice: if naive cross-validation is provably
+fine in autoregressive settings, the case for aggressive purging must
+rest on a specific leakage mechanism—and that mechanism, we show, is the
+overlapping forward-return label <em>combined with</em> persistent
+features, not autocorrelation of the target per se. Our controlled
+design isolates exactly that combination and maps the boundary between
+the two regimes.</p>
+<h4 id="purging-embargo-and-backtest-overfitting-in-finance.">Purging,
+embargo, and backtest overfitting in finance.</h4>
+<p><span class="citation" data-cites="lopezdeprado2018advances">López de
+Prado (2018)</span> gives the canonical statement of the problem in
+financial machine learning: when labels are computed from forward
+windows of returns, observations whose label intervals overlap leak
+information between training and test folds, inflating measured
+performance; his Chapter 7 prescribes purged <span
+class="math inline">k</span>-fold cross-validation with an embargo as
+the remedy. The prescription has been adopted essentially on textbook
+authority—implementations ship in widely used open-source backtesting
+libraries—but the supporting evidence is illustrative rather than
+quantitative. Closely related is the literature on backtest overfitting:
+<span class="citation" data-cites="bailey2014pseudo">Bailey et al.
+(2014)</span> showed how multiple testing over strategy configurations
+manufactures spurious Sharpe ratios, and <span class="citation"
+data-cites="bailey2017probability">Bailey et al. (2017)</span>
+operationalized this as the probability of backtest overfitting,
+estimated via combinatorially symmetric cross-validation. <span
+class="citation" data-cites="hansen2012choice">Hansen and Timmermann
+(2012)</span> document a complementary channel, the mining of the
+in-sample/out-of-sample split point itself. These papers quantify
+<em>selection-induced</em> phantom skill; none measures the
+<em>split-induced</em> phantom skill that purging targets, nor how the
+two interact when leaky validation scores feed a model-selection
+step—the interaction our Section <a href="#sec:selection"
+data-reference-type="ref" data-reference="sec:selection">6.5</a>
+measures directly.</p>
+<h4 id="leakage-as-a-general-ml-failure-mode.">Leakage as a general ML
+failure mode.</h4>
+<p>Outside finance, <span class="citation"
+data-cites="kaufman2012leakage">Kaufman et al. (2012)</span> provided
+the standard formulation of leakage in data mining: the use of
+information at training time that would be illegitimately unavailable at
+deployment. <span class="citation"
+data-cites="hammerla2015lets">Hammerla and Plötz (2015)</span>
+demonstrated a structurally identical phenomenon in activity
+recognition, where similarity between temporally adjacent windowed
+records biases cross-validation upward, and proposed meta-segmented
+folds—effectively purging by another name. <span class="citation"
+data-cites="kapoor2023leakage">Kapoor and Narayanan (2023)</span> survey
+leakage across seventeen scientific fields and identify it as a
+principal driver of the reproducibility crisis in ML-based science, but
+their taxonomy stops at detection and avoidance; the magnitude of bias
+attributable to a given leakage channel, as a function of measurable
+data properties, is left open.</p>
+<h4 id="overlapping-observations-in-econometrics.">Overlapping
+observations in econometrics.</h4>
+<p>That overlapping forward returns induce dependence is classical
+econometrics. <span class="citation"
+data-cites="hansen1980forward">Hansen and Hodrick (1980)</span> derived
+corrected inference for regressions with overlapping horizons, <span
+class="citation" data-cites="hodrick1992dividend">Hodrick (1992)</span>
+showed that long-horizon predictive regressions suffer severe
+small-sample distortions under overlap and proposed alternative standard
+errors, and <span class="citation"
+data-cites="brittenjones2011improved">Britten-Jones et al. (2011)</span>
+offered a transformation-based improvement. This literature solved the
+<em>inference</em> problem—standard errors under overlap—decades ago.
+Its <em>evaluation</em> analogue, the bias the same overlap induces in
+cross-validated estimates of predictive skill and in the model
+selections made from them, has no comparable treatment.</p>
+<h4 id="gap.">Gap.</h4>
+<p>Across these literatures the pieces of our question exist but have
+never been assembled. The statistics literature supplies blocked and
+purged estimators without measuring what they remove; the forecasting
+literature shows naive CV can be unbiased in autoregressive settings,
+seemingly contradicting financial practice; the econometrics literature
+characterizes overlap-induced dependence for inference but not for
+evaluation. To our knowledge, no study has measured, in a controlled
+known-truth design, (i) the magnitude of phantom skill under naive,
+blocked, purged-embargoed, and walk-forward splitting as a joint
+function of label overlap and feature persistence; (ii) the embargo
+actually required, rather than the rule-of-thumb <span
+class="math inline">1\%</span>; (iii) the data and dispersion costs
+purging imposes; and (iv) the downstream model-selection consequences
+when leaky scores choose among candidates. Quantifying these is the
+contribution of this paper, and it simultaneously reconciles the
+Bergmeir-line validity results with the finance-community prescription:
+both are correct in their respective regimes, and we map the boundary
+between them.</p>
+<h1 id="sec:splitters">Overlap leakage and the splitters under test</h1>
+<h4 id="labels-and-information-intervals.">Labels and information
+intervals.</h4>
+<p>Time is indexed by observations <span class="math inline">t = 0, 1,
+\dots</span> Let <span class="math inline">r_t</span> denote the return
+realized over the step ending at <span class="math inline">t</span>, and
+let features be observable at <span class="math inline">t</span>. The
+label of sample <span class="math inline">t</span> is the forward <span
+class="math inline">h</span>-period cumulative return <span
+class="math display">\begin{equation}
+y_t \;=\; \sum_{u=t+1}^{t+h} r_u ,
+\label{eq:label}
+\end{equation}</span> so for <span class="math inline">h&gt;1</span>
+consecutive samples share <span class="math inline">h-1</span> of their
+<span class="math inline">h</span> label returns. Each sample carries an
+<em>information interval</em> <span class="math inline">I_t = [t,\,
+t+h]</span>, which conservatively includes the decision time <span
+class="math inline">t</span> and the last return time <span
+class="math inline">t+h</span>. Two samples <span class="math inline">s,
+t</span> <em>overlap</em> iff <span class="math inline">I_s \cap I_t
+\neq \emptyset</span>. Overlap is the leakage channel under study: if a
+training sample’s interval intersects a test sample’s interval, part of
+the test label’s realized randomness is present in the training
+label.</p>
+<h4 id="the-splitter-suite.">The splitter suite.</h4>
+<p>All splitters partition the <span class="math inline">T</span>
+in-sample times into <span class="math inline">k</span> test folds and
+assign training sets; we compare six (Figure <a href="#fig:setup"
+data-reference-type="ref" data-reference="fig:setup">1</a>):</p>
+<ul>
+<li><p><strong>naive shuffled <span
+class="math inline">k</span>-fold</strong>: a uniformly random partition
+into <span class="math inline">k</span> test folds, train <span
+class="math inline">=</span> rest—the i.i.d. textbook procedure,
+deliberately wrong here;</p></li>
+<li><p><strong>blocked <span class="math inline">k</span>-fold</strong>:
+contiguous, equal test blocks; train <span class="math inline">=</span>
+everything outside the block, <em>without</em> purging, so overlapping
+pairs survive at the two boundaries of every test block;</p></li>
+<li><p><strong>purged <span class="math inline">k</span>-fold</strong>:
+contiguous test blocks; every training candidate <span
+class="math inline">i</span> whose interval <span
+class="math inline">[t_i, t_i+h]</span> intersects the union of the test
+block’s intervals is <em>purged</em> <span class="citation"
+data-cites="lopezdeprado2018advances">(López de Prado
+2018)</span>;</p></li>
+<li><p><strong>purged <span class="math inline">k</span>-fold <span
+class="math inline">+</span> embargo</strong>: additionally, training
+candidates <em>after</em> the test block whose time index lies within
+<span class="math inline">\max_{j \in \text{test}}(t_j + h) + E</span>
+are dropped, where <span class="math inline">E = \lfloor \varepsilon T
+\rceil</span> and <span class="math inline">\varepsilon</span> is the
+embargo fraction. The embargo is one-sided (after the block), extending
+the right-side purge window—the convention of <span class="citation"
+data-cites="lopezdeprado2018advances">López de Prado (2018)</span> and
+of the reference open-source implementations;</p></li>
+<li><p><strong>walk-forward</strong>: expanding-window splits; train on
+<span class="math inline">[0, b)</span>, test on the next contiguous
+block starting at <span class="math inline">b</span>; the first <span
+class="math inline">40\%</span> of the sample is never tested. Without
+purging, the training tail’s label windows run into the test block—a
+boundary leak;</p></li>
+<li><p><strong>walk-forward purged</strong>: as above, dropping training
+samples with <span class="math inline">t_i + h \geq b</span>.</p></li>
+</ul>
+<p>All six are implemented from scratch in the released package.
+Correctness is not assumed: an exact checker counts, for every (train,
+test) pair in every fold, whether the two information intervals
+intersect; the purged splitters produce <em>zero</em> overlapping pairs
+on every configuration in the test suite, exhaustively. The same checker
+quantifies how many overlapping pairs the naive and blocked splitters
+retain.</p>
+<figure id="fig:setup" data-latex-placement="t">
+<img src="/figures/fig_setup.svg" />
+<figcaption>The leakage anatomy, drawn by the released splitter code
+rather than by hand. (a) One fold of a naive shuffled <span
+class="math inline">k</span>-fold assignment (<span
+class="math inline">16</span> samples, <span
+class="math inline">k=4</span>, <span class="math inline">h=5</span>):
+each bar is a sample’s label window <span class="math inline">[t,
+t+h]</span>; dark red bars are test samples, light red bars are training
+samples whose windows overlap a test window—under shuffling, overlapping
+training neighbors surround every test sample. (b) Purged <span
+class="math inline">k</span>-fold anatomy for one middle fold (<span
+class="math inline">T=200</span>, <span class="math inline">k=5</span>,
+<span class="math inline">h=5</span>, embargo <span
+class="math inline">5\%</span>): the contiguous test block, the purged
+training samples at both block boundaries, and the one-sided embargo
+after the block. (c) The mechanism: a persistent feature (AR(1), <span
+class="math inline">\phi=0.97</span>) is nearly identical at a test time
+and its training neighbor one step later, while their label windows
+share <span class="math inline">h-1</span> of <span
+class="math inline">h</span> returns; a flexible model can look up the
+test label from a memorized training neighbor.</figcaption>
+</figure>
+<h1 id="sec:framework">Simulation framework</h1>
+<h4 id="data-generating-process.">Data-generating process.</h4>
+<p>Every experiment runs on a synthetic series whose true predictability
+is known exactly. Returns follow <span
+class="math display">\begin{equation}
+r_{t+1} \;=\; \beta\, s_t \;+\; \sigma\, \epsilon_{t+1},
+\qquad \epsilon_t \stackrel{\text{iid}}{\sim} \mathcal{N}(0,1),\; \sigma
+= 1,
+\label{eq:dgp}
+\end{equation}</span> where <span class="math inline">s_t</span> is a
+latent unit-variance AR(1) signal, <span class="math inline">s_t =
+\phi_s\, s_{t-1} + \sqrt{1-\phi_s^2}\,\eta_t</span>. Features are of two
+kinds, both AR(1) with exactly unit stationary variance. <em>Noise
+features</em> (five columns in the null and classification grids, four
+in the signal arms) are independent AR(1) processes with persistence
+<span class="math inline">\phi</span>, generated independently of the
+return series: their true predictive power is exactly zero, so any
+measured CV skill on a noise-only configuration (<span
+class="math inline">\beta = 0</span>) is leakage or sampling noise. The
+<em>signal feature</em>, present only in genuine-signal configurations,
+is the latent state <span class="math inline">s_t</span> itself
+(optionally observed with noise; noiselessly here). Labels are the
+overlapping forward sums of Eq. <a href="#eq:label"
+data-reference-type="eqref" data-reference="eq:label">[eq:label]</a>; a
+binary label <span class="math inline">\mathbf{1}\{y_t &gt; 0\}</span>
+is also produced for the classification arm. Crucially, all features are
+<em>exogenous</em>: none is computed from past returns. This isolates
+the pure overlap channel; features derived from returns (rolling means,
+volatilities) would add a second dependence channel that we deliberately
+exclude and discuss in Section <a href="#sec:limitations"
+data-reference-type="ref" data-reference="sec:limitations">8</a>.</p>
+<h4 id="closed-form-population-truth.">Closed-form population
+truth.</h4>
+<p>For the single-signal configuration the population Pearson
+correlation between the observed feature <span
+class="math inline">f_t</span> and the <span
+class="math inline">h</span>-period label is available in closed form:
+<span class="math display">\begin{equation}
+\mathrm{IC}_{\mathrm{pop}}
+= \frac{\beta\, g_h}{\sqrt{\big(1+\nu^2\big)\big(\beta^2 V_h +
+h\sigma^2\big)}},
+\qquad
+g_h = \sum_{j=0}^{h-1}\phi_s^{\,j},
+\qquad
+V_h = h + 2\sum_{d=1}^{h-1}(h-d)\,\phi_s^{\,d},
+\label{eq:popic}
+\end{equation}</span> with <span class="math inline">\nu</span> the
+observation-noise standard deviation (<span class="math inline">\nu =
+0</span> here). For noise-only configurations <span
+class="math inline">\mathrm{IC}_{\mathrm{pop}} = 0</span> exactly. We
+invert Eq. <a href="#eq:popic" data-reference-type="eqref"
+data-reference="eq:popic">[eq:popic]</a> to calibrate <span
+class="math inline">\beta</span> so that every genuine-signal arm has
+the same population IC of <span class="math inline">0.10</span>
+regardless of its persistence <span class="math inline">\phi_s</span>—so
+arms differ only in the property under study.</p>
+<h4 id="forward-truth-protocol.">Forward-truth protocol.</h4>
+<p>Each experiment generates <span class="math inline">T</span>
+in-sample observations handed to the CV schemes, followed by an <span
+class="math inline">h</span>-step gap (so no label window crosses the
+boundary), followed by <span class="math inline">T_{\text{hold}} =
+5{,}000</span> forward observations that no CV procedure ever touches.
+For each (splitter, model) pair we record: the <strong>CV
+estimate</strong>—the pooled out-of-sample IC (Pearson correlation of
+cross-validated predictions with realized labels; AUC for
+classification) exactly as a practitioner would compute it; the
+<strong>truth</strong>—each fold’s fitted model evaluated on the forward
+holdout, averaged across folds; and <span
+class="math display">\begin{equation}
+\text{leak} \;=\; \text{CV estimate} \;-\; \text{truth}.
+\label{eq:leak}
+\end{equation}</span> Under the null the population truth is zero (AUC:
+<span class="math inline">0.5</span>) and the measured forward truth is
+statistically indistinguishable from it, so the mean leak in a cell is
+the phantom skill of that cell. Positive leak is optimism; negative leak
+is pessimism, which we report but do not count as leakage to be
+embargoed away. Everything is deterministic given the released
+seeds.</p>
+<h1 id="sec:setup">Experimental setup</h1>
+<p>All schemes use <span class="math inline">k=5</span> folds; the
+“purged <span class="math inline">+</span> embargo” scheme uses the
+common default <span class="math inline">\varepsilon = 2\%</span> except
+in the embargo sweep, where <span class="math inline">\varepsilon</span>
+is the design variable; walk-forward never tests the first <span
+class="math inline">40\%</span>. Regression models are ridge (<span
+class="math inline">\alpha=1</span>) and a random forest (<span
+class="math inline">30</span> trees, depth <span
+class="math inline">6</span>, minimum leaf <span
+class="math inline">5</span>); classification uses logistic regression
+and a random-forest classifier of the same shape. Four batches:</p>
+<ol>
+<li><p><strong>Null grid</strong> (the headline surface): noise-only
+configurations crossing <span class="math inline">h \in
+\{1,5,10,20\}</span> with <span class="math inline">\phi \in \{0, 0.3,
+0.6, 0.9, 0.97\}</span>, <span class="math inline">16</span> repetitions
+per cell, in-sample length <span class="math inline">T</span> drawn per
+repetition from <span class="math inline">\{800, 1600, 2400\}</span>,
+five noise features; all six splitters <span
+class="math inline">\times</span> both regression models: <span
+class="math inline">3{,}840</span> records.</p></li>
+<li><p><strong>Embargo sweep</strong>: purged <span
+class="math inline">k</span>-fold with <span
+class="math inline">\varepsilon \in \{0, 1, 2, 4, 8\}\%</span> at <span
+class="math inline">h=10</span>, <span
+class="math inline">T=1600</span>; four genuine-signal arms with <span
+class="math inline">\phi_s \in \{0.6, 0.9, 0.97, 0.995\}</span> and
+<span class="math inline">\beta</span> calibrated to <span
+class="math inline">\mathrm{IC}_{\mathrm{pop}} = 0.10</span> (plus four
+noise features, <span class="math inline">\phi = 0.9</span>), and one
+noise-only arm; <span class="math inline">24</span> repetitions per arm:
+<span class="math inline">1{,}200</span> records. An arm is
+<em>calibrated</em> at <span class="math inline">\varepsilon</span> if
+its mean leak is <span class="math inline">\le 0.01</span> or its <span
+class="math inline">95\%</span> CI contains zero.</p></li>
+<li><p><strong>Model selection</strong>: genuine-signal configuration
+(<span class="math inline">T=2000</span>, <span
+class="math inline">h=10</span>, <span class="math inline">\phi_s =
+0.97</span>, <span class="math inline">\beta = 0.036</span>, <span
+class="math inline">\mathrm{IC}_{\mathrm{pop}} = 0.100</span>, four
+noise features with <span class="math inline">\phi=0.9</span>) and a
+five-model menu—ridge, random forests of depth <span
+class="math inline">3</span> and <span class="math inline">8</span>, and
+<span class="math inline">k</span>NN with <span
+class="math inline">k=10</span> and <span
+class="math inline">k=50</span>. In each of <span
+class="math inline">50</span> repetitions both naive and purged(<span
+class="math inline">+2\%</span> embargo) CV score the menu and select
+the argmax; every candidate’s <em>true</em> forward skill is measured by
+refitting on all in-sample data and scoring on the holdout: <span
+class="math inline">50</span> records.</p></li>
+<li><p><strong>Classification check</strong>: noise-only configurations
+at <span class="math inline">h=10</span>, <span
+class="math inline">T=1500</span>, <span class="math inline">\phi \in
+\{0, 0.9\}</span>, <span class="math inline">20</span> repetitions,
+naive vs. purged<span class="math inline">+</span>embargo, both
+classifiers: <span class="math inline">160</span> records.</p></li>
+</ol>
+<p>In total <span class="math inline">5{,}250</span> (splitter, model,
+series) evaluations. All intervals are normal-approximation <span
+class="math inline">95\%</span> confidence intervals across repetitions.
+The information coefficient is the primary metric throughout; a
+sign-strategy Sharpe is recorded as a secondary descriptive metric. The
+Sharpe broadly tracks the IC pattern in the product region, but it is
+<em>not</em> a clean interaction in the IC sense: the Sharpe of
+overlapping PnL has its own bias channel, and the naive splitter shows a
+significant phantom Sharpe even on the <span
+class="math inline">\phi=0</span> axis at long horizons (e.g. <span
+class="math inline">+0.098\pm0.056</span> at <span
+class="math inline">h{=}20</span>, <span
+class="math inline">\phi{=}0</span>), so we do not rely on it for the
+interaction claim.</p>
+<h1 id="results">Results</h1>
+<h2 id="sec:interaction">Phantom skill under the null is an
+interaction</h2>
+<p>Table <a href="#tab:interaction" data-reference-type="ref"
+data-reference="tab:interaction">1</a> is the headline measurement: the
+phantom skill (mean leak, Eq. <a href="#eq:leak"
+data-reference-type="eqref" data-reference="eq:leak">[eq:leak]</a>) of
+naive shuffled <span class="math inline">k</span>-fold with a random
+forest, on features with <em>exactly zero</em> true predictive power,
+across the <span class="math inline">(h, \phi)</span> grid. Figure <a
+href="#fig:phantom" data-reference-type="ref"
+data-reference="fig:phantom">2</a> shows the same surface graphically
+alongside the other splitters.</p>
+<div id="tab:interaction">
+<table>
+<caption>Phantom skill of naive shuffled <span
+class="math inline">k</span>-fold (random forest) under the null: mean
+CV IC <span class="math inline">-</span> true forward IC, <span
+class="math inline">\pm</span> <span class="math inline">95\%</span> CI,
+<span class="math inline">16</span> repetitions per cell. True
+predictive power is exactly zero everywhere in this table. The phantom
+is an interaction: the <span class="math inline">h=1</span> row and the
+<span class="math inline">\phi=0</span> column show no optimistic skill
+(two axis cells are mildly significantly <em>negative</em>, consistent
+with the contiguity pessimism of Section <a href="#sec:embargo"
+data-reference-type="ref" data-reference="sec:embargo">6.3</a>); the
+product region is catastrophically biased. In every cell with <span
+class="math inline">h \ge 5</span> and <span class="math inline">\phi
+\ge 0.9</span> all <span class="math inline">16</span> repetitions leak
+positive.</caption>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th colspan="5" style="text-align: center;">feature persistence <span
+class="math inline">\phi</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><span>2-6</span> horizon</td>
+<td style="text-align: center;"><span class="math inline">0</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.3</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.6</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.9</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.97</span></td>
+</tr>
+<tr>
+<td style="text-align: left;"><span class="math inline">h=1</span></td>
+<td style="text-align: center;"><span class="math inline">+0.005 \pm
+0.017</span></td>
+<td style="text-align: center;"><span class="math inline">-0.020 \pm
+0.022</span></td>
+<td style="text-align: center;"><span class="math inline">-0.002 \pm
+0.017</span></td>
+<td style="text-align: center;"><span class="math inline">-0.009 \pm
+0.016</span></td>
+<td style="text-align: center;"><span class="math inline">-0.026 \pm
+0.016</span></td>
+</tr>
+<tr>
+<td style="text-align: left;"><span class="math inline">h=5</span></td>
+<td style="text-align: center;"><span class="math inline">-0.006 \pm
+0.021</span></td>
+<td style="text-align: center;"><span class="math inline">+0.027 \pm
+0.019</span></td>
+<td style="text-align: center;"><span class="math inline">+0.065 \pm
+0.029</span></td>
+<td style="text-align: center;"><span class="math inline">+0.219 \pm
+0.033</span></td>
+<td style="text-align: center;"><span class="math inline">+0.307 \pm
+0.024</span></td>
+</tr>
+<tr>
+<td style="text-align: left;"><span class="math inline">h=10</span></td>
+<td style="text-align: center;"><span class="math inline">-0.020 \pm
+0.016</span></td>
+<td style="text-align: center;"><span class="math inline">-0.008 \pm
+0.018</span></td>
+<td style="text-align: center;"><span class="math inline">+0.075 \pm
+0.030</span></td>
+<td style="text-align: center;"><span class="math inline">+0.298 \pm
+0.033</span></td>
+<td style="text-align: center;"><span class="math inline">+0.465 \pm
+0.040</span></td>
+</tr>
+<tr>
+<td style="text-align: left;"><span class="math inline">h=20</span></td>
+<td style="text-align: center;"><span class="math inline">-0.005 \pm
+0.022</span></td>
+<td style="text-align: center;"><span class="math inline">+0.014 \pm
+0.017</span></td>
+<td style="text-align: center;"><span class="math inline">+0.064 \pm
+0.023</span></td>
+<td style="text-align: center;"><span class="math inline">+0.327 \pm
+0.042</span></td>
+<td style="text-align: center;"><span class="math inline">+0.564 \pm
+0.048</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Three observations. First, the <em>interaction</em> is exact within
+sampling noise: across the entire <span class="math inline">h=1</span>
+row the largest phantom skill is <span class="math inline">+0.005</span>
+(any <span class="math inline">\phi</span>), and across the entire <span
+class="math inline">\phi=0</span> column the largest is <span
+class="math inline">+0.005</span> (any <span
+class="math inline">h</span>). Overlapping labels with serially
+independent features produce nothing—the model has no way to locate a
+test point’s temporal neighbors, so the shared label content is
+unreachable. Persistent features with non-overlapping labels produce
+nothing—the neighbors are locatable but their labels share no randomness
+with the test label. This is precisely the reconciliation: the
+autoregressive settings in which <span class="citation"
+data-cites="bergmeir2018note">Bergmeir et al. (2018)</span> prove naive
+CV valid, and in which <span class="citation"
+data-cites="bergmeir2012use">Bergmeir and Benítez (2012)</span> found it
+empirically competitive, sit on these two axes; the standard financial
+configuration (<span class="math inline">h</span>-period forward labels,
+persistent predictors) sits in the product region.</p>
+<p>Second, in the product region the bias is enormous relative to any
+realistic signal: <span class="math inline">+0.307 \pm 0.024</span> at
+<span class="math inline">(h{=}5, \phi{=}0.97)</span>, rising to <span
+class="math inline">+0.564 \pm 0.048</span> at <span
+class="math inline">(h{=}20, \phi{=}0.97)</span>—an order of magnitude
+larger than the information coefficients real strategies exhibit, and
+positive in <span class="math inline">16</span> of <span
+class="math inline">16</span> repetitions in every cell with <span
+class="math inline">h \ge 5</span>, <span class="math inline">\phi \ge
+0.9</span>.</p>
+<p>Third, the leak is model-dependent in the direction the mechanism
+predicts: the more local and flexible the model, the more of the leak it
+absorbs. Ridge regression, which cannot memorize individual neighbors,
+shows roughly one third of the random forest’s phantom at the same cells
+(<span class="math inline">+0.073</span>, <span
+class="math inline">+0.150</span>, <span class="math inline">+0.182 \pm
+0.044</span> at <span class="math inline">h = 5, 10, 20</span> with
+<span class="math inline">\phi = 0.97</span>). The classification arm
+behaves identically in AUC units: at <span class="math inline">\phi =
+0.9</span>, <span class="math inline">h = 10</span>, a naive-CV
+random-forest classifier reports AUC <span
+class="math inline">0.623</span> against a true forward AUC of <span
+class="math inline">0.504</span>—phantom AUC <span
+class="math inline">+0.119 \pm 0.010</span>—while logistic regression
+shows <span class="math inline">+0.042 \pm 0.014</span>; at <span
+class="math inline">\phi = 0</span> both are zero (<span
+class="math inline">-0.008 \pm 0.011</span> and <span
+class="math inline">-0.011 \pm 0.012</span>), and under
+purged-with-embargo CV both are slightly pessimistic everywhere (<span
+class="math inline">-0.026</span> to <span
+class="math inline">-0.044</span>).</p>
+<figure id="fig:phantom" data-latex-placement="t">
+<img src="/figures/fig_phantom.svg" />
+<figcaption>Phantom skill under the null (CV IC <span
+class="math inline">-</span> true forward IC; population truth is
+exactly zero), <span class="math inline">16</span> repetitions per cell,
+error bars <span class="math inline">95\%</span> CIs. (a) Random forest
+at <span class="math inline">\phi=0.97</span>: naive shuffled <span
+class="math inline">k</span>-fold rises from <span
+class="math inline">{\approx}0</span> at <span
+class="math inline">h=1</span> to <span class="math inline">+0.56</span>
+at <span class="math inline">h=20</span>; every other splitter stays at
+or below zero. (b) Ridge at <span class="math inline">\phi=0.97</span>:
+the same shape at one third the size. (c) The interaction, naive <span
+class="math inline">k</span>-fold with the random forest across the full
+persistence grid: the surface is flat at zero along both axes (<span
+class="math inline">h=1</span> or <span
+class="math inline">\phi=0</span>) and rises only in their
+product.</figcaption>
+</figure>
+<h2 id="sec:blocking">Blocking alone removes nearly all of the mean
+bias</h2>
+<p>Table <a href="#tab:splitters" data-reference-type="ref"
+data-reference="tab:splitters">2</a> compares all six splitters two
+ways: their worst (most optimistic) cell anywhere on the <span
+class="math inline">4 \times 5</span> grid, and their leak at the most
+leak-prone cell, <span class="math inline">(h{=}20, \phi{=}0.97)</span>,
+where naive <span class="math inline">k</span>-fold shows <span
+class="math inline">+0.564</span>.</p>
+<div id="tab:splitters">
+<table>
+<caption>Mean leak by splitter: worst (most positive) cell over the full
+<span class="math inline">(h,\phi)</span> grid, and the value at the
+most leak-prone cell <span class="math inline">(h{=}20,
+\phi{=}0.97)</span>. <span class="math inline">\pm</span> are <span
+class="math inline">95\%</span> CIs, <span
+class="math inline">n=16</span> per cell. Every non-naive splitter’s
+worst cell occurs at <span class="math inline">h=1</span>, where labels
+do not overlap and the leakage mechanism is absent—i.e. those worst
+cells are sampling noise, not residual leakage. RF <span
+class="math inline">=</span> random forest.</caption>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th colspan="2" style="text-align: center;">worst cell over grid</th>
+<th colspan="2" style="text-align: center;">at <span
+class="math inline">h{=}20</span>, <span
+class="math inline">\phi{=}0.97</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><span>2-3</span>(lr)<span>4-5</span>
+Splitter</td>
+<td style="text-align: center;">RF</td>
+<td style="text-align: center;">ridge</td>
+<td style="text-align: center;">RF</td>
+<td style="text-align: center;">ridge</td>
+</tr>
+<tr>
+<td style="text-align: left;">naive shuffled <span
+class="math inline">k</span>-fold</td>
+<td style="text-align: center;"><span class="math inline">+0.564 \pm
+0.048</span></td>
+<td style="text-align: center;"><span class="math inline">+0.182 \pm
+0.044</span></td>
+<td style="text-align: center;"><span class="math inline">+0.564 \pm
+0.048</span></td>
+<td style="text-align: center;"><span class="math inline">+0.182 \pm
+0.044</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">blocked <span
+class="math inline">k</span>-fold (no purge)</td>
+<td style="text-align: center;"><span class="math inline">+0.004 \pm
+0.019</span></td>
+<td style="text-align: center;"><span class="math inline">+0.008 \pm
+0.024</span></td>
+<td style="text-align: center;"><span class="math inline">-0.052 \pm
+0.043</span></td>
+<td style="text-align: center;"><span class="math inline">-0.099 \pm
+0.079</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">purged <span
+class="math inline">k</span>-fold</td>
+<td style="text-align: center;"><span class="math inline">+0.009 \pm
+0.019</span></td>
+<td style="text-align: center;"><span class="math inline">+0.008 \pm
+0.024</span></td>
+<td style="text-align: center;"><span class="math inline">-0.069 \pm
+0.050</span></td>
+<td style="text-align: center;"><span class="math inline">-0.115 \pm
+0.076</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">purged <span
+class="math inline">k</span>-fold <span class="math inline">+</span>
+embargo</td>
+<td style="text-align: center;"><span class="math inline">+0.009 \pm
+0.019</span></td>
+<td style="text-align: center;"><span class="math inline">+0.009 \pm
+0.024</span></td>
+<td style="text-align: center;"><span class="math inline">-0.056 \pm
+0.051</span></td>
+<td style="text-align: center;"><span class="math inline">-0.103 \pm
+0.078</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">walk-forward (no purge)</td>
+<td style="text-align: center;"><span class="math inline">+0.016 \pm
+0.017</span></td>
+<td style="text-align: center;"><span class="math inline">+0.012 \pm
+0.021</span></td>
+<td style="text-align: center;"><span class="math inline">-0.007 \pm
+0.043</span></td>
+<td style="text-align: center;"><span class="math inline">-0.040 \pm
+0.049</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">walk-forward purged</td>
+<td style="text-align: center;"><span class="math inline">+0.015 \pm
+0.015</span></td>
+<td style="text-align: center;"><span class="math inline">+0.012 \pm
+0.021</span></td>
+<td style="text-align: center;"><span class="math inline">-0.036 \pm
+0.051</span></td>
+<td style="text-align: center;"><span class="math inline">-0.045 \pm
+0.052</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The result we did not expect to be this clean: <strong>blocked <span
+class="math inline">k</span>-fold without any purging already removes
+essentially all of the mean bias</strong>. Its worst cell anywhere on
+the grid is <span class="math inline">+0.004 \pm 0.019</span> (RF) and
+<span class="math inline">+0.008 \pm 0.024</span> (ridge)—both at <span
+class="math inline">h=1</span>, where no overlap exists, i.e. sampling
+noise—and at the cell where naive CV hallucinates <span
+class="math inline">+0.564</span>, blocking alone shows <span
+class="math inline">-0.052 \pm 0.043</span>. The arithmetic explains
+why: with contiguous test blocks, overlapping train/test pairs survive
+only within <span class="math inline">h</span> samples of the two block
+boundaries, a <span class="math inline">O(h/T)</span> fraction of pairs,
+versus <span class="math inline">O(1)</span> under shuffling. At <span
+class="math inline">h \ll T</span> the surviving boundary leak is
+second-order in the mean. Unpurged walk-forward behaves the same way
+(<span class="math inline">+0.016</span> worst, one boundary per fold).
+What purging changes in the mean, at these horizons, is statistically
+nothing; what it changes structurally is the <em>guarantee</em>—the
+exhaustive pair checker certifies zero overlapping pairs, for any <span
+class="math inline">h</span>, any fold geometry, any future
+configuration in which <span class="math inline">h</span> is not small
+relative to the block length. We state this honestly as the paper’s
+mildly contrarian finding: at <span class="math inline">h \ll T</span>,
+contiguity does the calibration work, and purging is cheap insurance on
+the worst case rather than a correction of the average.</p>
+<p>The residuals of all contiguous schemes at high <span
+class="math inline">(h,\phi)</span> are <em>negative</em>: blocked,
+purged, and embargoed <span class="math inline">k</span>-fold sit
+between <span class="math inline">-0.05</span> and <span
+class="math inline">-0.12</span> at <span class="math inline">(h{=}20,
+\phi{=}0.97)</span>. This is contiguous-fold pessimism, not residual
+leakage: with strongly overlapping labels a test block contains few
+effectively independent label windows, and a model fit outside the block
+regresses toward its own training period, so the pooled CV correlation
+systematically underestimates the same models’ forward skill on a long
+holdout. Two caveats scope this. First, the magnitude is specific to the
+<em>pooled-prediction</em> convention we adopt as “what a practitioner
+computes”: scoring each fold’s IC separately and averaging shrinks the
+pessimism substantially, because much of it comes from pooling
+predictions across heterogeneous contiguous folds rather than from the
+splits themselves. Second, the direction is what matters for practice:
+the honest procedure does not merely remove the optimism; under the
+pooled convention it leaves an estimate that is, if anything, slightly
+conservative—a property practitioners should budget for (or sidestep by
+fold-averaging) rather than “fix” by un-purging.</p>
+<h2 id="sec:embargo">Purging is calibrated at zero embargo; the embargo
+bought nothing here</h2>
+<p>The embargo sweep asks the textbook question directly: after purging,
+how much embargo is required before residual CV optimism disappears? In
+this design the answer is <strong>none, in every arm</strong> (Figure <a
+href="#fig:embargo" data-reference-type="ref"
+data-reference="fig:embargo">3</a>). At <span
+class="math inline">\varepsilon = 0</span>, all ten (arm, model)
+combinations—four genuine-signal persistence levels up to <span
+class="math inline">\phi_s = 0.995</span> plus the null arm, each under
+both models—already meet the calibration criterion. The residual leak at
+zero embargo ranges from <span class="math inline">-0.010</span> to
+<span class="math inline">-0.102</span>: every single one is
+<em>negative</em> (the contiguous-fold pessimism of Section <a
+href="#sec:blocking" data-reference-type="ref"
+data-reference="sec:blocking">6.2</a>), so there is no optimism left for
+an embargo to remove. And the sweep is flat: across the entire grid
+<span class="math inline">\varepsilon \in \{0, 1, 2, 4, 8\}\%</span>,
+the largest within-arm movement of the mean residual is <span
+class="math inline">0.012</span>, far inside every confidence interval.
+The cost side, by contrast, is real and linear: the purge alone discards
+<span class="math inline">1.2\%</span> of training candidates at this
+geometry (<span class="math inline">h=10</span>, <span
+class="math inline">T=1600</span>, <span
+class="math inline">k=5</span>), and the <span
+class="math inline">8\%</span> embargo discards <span
+class="math inline">9.2\%</span> (Figure <a href="#fig:embargo"
+data-reference-type="ref" data-reference="fig:embargo">3</a>c).</p>
+<p>We disclose the scope of this negative result plainly rather than
+generalize it. Our features are exogenous AR(1) processes: their serial
+dependence does not involve the return series, so once label-window
+overlap is purged, nothing in the training set echoes the test labels.
+The embargo exists for a different case—features <em>derived from</em>
+past returns (rolling means, realized volatilities, momentum), whose
+values shortly after the test block mechanically contain the test
+block’s returns even though their label windows do not intersect it.
+That channel is absent from this design by construction, and our
+experiments say nothing about it; we flag it as the natural follow-up
+(Section <a href="#sec:limitations" data-reference-type="ref"
+data-reference="sec:limitations">8</a>). What the experiments do
+establish is the converse caution: the common reflex of applying a fixed
+<span class="math inline">1\%</span>–<span
+class="math inline">2\%</span> embargo as a default tax is not supported
+by the overlap mechanism itself, even at signal persistence <span
+class="math inline">0.995</span>—if an embargo is justified, it is
+justified by return-derived features, and its size should be measured,
+not assumed.</p>
+<figure id="fig:embargo" data-latex-placement="t">
+<img src="/figures/fig_embargo.svg" />
+<figcaption>The embargo sweep: residual leak of purged <span
+class="math inline">k</span>-fold as the one-sided embargo grows from
+<span class="math inline">0</span> to <span
+class="math inline">8\%</span> of the sample (<span
+class="math inline">h=10</span>, <span
+class="math inline">T=1600</span>, <span class="math inline">24</span>
+repetitions per arm, <span class="math inline">95\%</span> CIs). (a)
+Random forest and (b) ridge: four genuine-signal arms (signal
+persistence <span class="math inline">\phi_s = 0.6</span>–<span
+class="math inline">0.995</span>, each calibrated to population IC <span
+class="math inline">0.10</span>) and the null arm (dashed). Every arm is
+calibrated already at zero embargo; the residual is negative
+(contiguous-fold pessimism) and the curves are flat—the embargo buys
+nothing in this design. (c) Its cost is real: training candidates
+retained fall linearly from <span class="math inline">98.8\%</span>
+(purge only) to <span class="math inline">90.8\%</span> at an <span
+class="math inline">8\%</span> embargo.</figcaption>
+</figure>
+<h2 id="sec:costs">What purging costs</h2>
+<p>Table <a href="#tab:costs" data-reference-type="ref"
+data-reference="tab:costs">3</a> prices the honest procedures on the
+null grid. Purged <span class="math inline">k</span>-fold retains <span
+class="math inline">98.7\%</span> of available training candidates (the
+null grid averages over <span class="math inline">h</span> up to <span
+class="math inline">20</span> and <span class="math inline">T</span>
+down to <span class="math inline">800</span>, where the purge share is
+largest; at the embargo sweep’s geometry it is <span
+class="math inline">98.8\%</span>), and the default <span
+class="math inline">2\%</span> embargo lowers retention to <span
+class="math inline">96.7\%</span>. The dispersion price of honesty is
+visible but modest: the repetition-level standard deviation of the CV
+estimate rises from <span class="math inline">0.048</span> (naive, RF)
+to <span class="math inline">0.058</span> for purged <span
+class="math inline">k</span>-fold, <span
+class="math inline">+21\%</span> (repetitions randomize <span
+class="math inline">T \in \{800, 1600, 2400\}</span>, so these are
+dispersions over a mixture of sample sizes; the cross-splitter
+comparison is unaffected since every splitter sees the same series). The
+decomposition matters: blocked <span class="math inline">k</span>-fold
+without purging already shows <span class="math inline">0.057</span>, so
+almost the entire dispersion increase is the price of
+<em>contiguity</em>—fewer effectively independent label windows per
+fold—and the purge itself adds about one percent. Walk-forward is the
+expensive option: it trains on <span class="math inline">72.7\%</span>
+of the available candidates on average (the early folds see far less)
+and its fold-level dispersion is about twice naive <span
+class="math inline">k</span>-fold’s (<span class="math inline">0.050 \to
+0.104</span>), the familiar price of evaluating only on late,
+single-pass blocks.</p>
+<div id="tab:costs">
+<table>
+<caption>Costs on the null grid (<span class="math inline">320</span>
+records per cell): fraction of available training candidates retained
+(identical for both models), the across-fold standard deviation of the
+fold-level CV estimate, and the across-repetition standard deviation of
+the pooled CV estimate within an <span
+class="math inline">(h,\phi)</span> cell, averaged over cells.</caption>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: center;"></th>
+<th colspan="2" style="text-align: center;">random forest</th>
+<th colspan="2" style="text-align: center;">ridge</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><span>3-4</span>(lr)<span>5-6</span>
+Splitter</td>
+<td style="text-align: center;">train kept</td>
+<td style="text-align: center;">fold std</td>
+<td style="text-align: center;">rep. std</td>
+<td style="text-align: center;">fold std</td>
+<td style="text-align: center;">rep. std</td>
+</tr>
+<tr>
+<td style="text-align: left;">naive shuffled <span
+class="math inline">k</span>-fold</td>
+<td style="text-align: center;"><span
+class="math inline">100.0\%</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.050</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.048</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.050</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.053</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">blocked <span
+class="math inline">k</span>-fold (no purge)</td>
+<td style="text-align: center;"><span
+class="math inline">100.0\%</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.074</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.057</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.084</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.077</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">purged <span
+class="math inline">k</span>-fold</td>
+<td style="text-align: center;"><span
+class="math inline">98.7\%</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.074</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.058</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.084</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.077</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">purged <span
+class="math inline">k</span>-fold <span class="math inline">+</span>
+embargo</td>
+<td style="text-align: center;"><span
+class="math inline">96.7\%</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.073</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.059</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.084</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.077</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">walk-forward (no purge)</td>
+<td style="text-align: center;"><span
+class="math inline">72.7\%</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.104</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.054</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.122</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.066</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">walk-forward purged</td>
+<td style="text-align: center;"><span
+class="math inline">72.0\%</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.105</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.057</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.123</span></td>
+<td style="text-align: center;"><span
+class="math inline">0.067</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="sec:selection">Model selection: where the bias becomes a wrong
+decision</h2>
+<p>A biased estimate is survivable; a biased <em>choice</em> is not. The
+selection batch puts a genuine signal in the data (population IC <span
+class="math inline">0.100</span>) and lets each CV scheme choose from a
+five-model menu whose true forward skills we measure exactly. Table <a
+href="#tab:selection" data-reference-type="ref"
+data-reference="tab:selection">4</a> and Figure <a href="#fig:selection"
+data-reference-type="ref" data-reference="fig:selection">4</a> report
+the outcome.</p>
+<div id="tab:selection">
+<table>
+<caption>Model selection with a genuine signal (population IC <span
+class="math inline">0.100</span>, <span class="math inline">50</span>
+repetitions, <span class="math inline">\pm</span> <span
+class="math inline">95\%</span> CIs). “True IC” is the selected model’s
+forward holdout IC after refitting on all in-sample data; optimism <span
+class="math inline">=</span> CV claim <span class="math inline">-</span>
+true; regret <span class="math inline">=</span> oracle true IC <span
+class="math inline">-</span> selected true IC. The five-candidate menu’s
+true forward ICs: ridge <span class="math inline">0.059 \pm
+0.014</span>, RF depth 3 <span class="math inline">0.041 \pm
+0.011</span>, RF depth 8 <span class="math inline">0.027 \pm
+0.010</span>, <span class="math inline">k</span>NN(<span
+class="math inline">50</span>) <span class="math inline">0.021 \pm
+0.009</span>, <span class="math inline">k</span>NN(<span
+class="math inline">10</span>) <span class="math inline">0.012 \pm
+0.008</span>.</caption>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: center;">CV IC of pick</th>
+<th style="text-align: center;">true IC of pick</th>
+<th style="text-align: center;">optimism</th>
+<th style="text-align: center;">regret</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">naive shuffled <span
+class="math inline">k</span>-fold</td>
+<td style="text-align: center;"><span class="math inline">0.422 \pm
+0.011</span></td>
+<td style="text-align: center;"><span class="math inline">0.012 \pm
+0.008</span></td>
+<td style="text-align: center;"><span class="math inline">+0.410 \pm
+0.012</span></td>
+<td style="text-align: center;"><span class="math inline">0.056 \pm
+0.011</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">purged <span class="math inline">+</span>
+embargo</td>
+<td style="text-align: center;"><span class="math inline">0.053 \pm
+0.019</span></td>
+<td style="text-align: center;"><span class="math inline">0.042 \pm
+0.013</span></td>
+<td style="text-align: center;"><span class="math inline">+0.012 \pm
+0.020</span></td>
+<td style="text-align: center;"><span class="math inline">0.027 \pm
+0.008</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">oracle</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><span class="math inline">0.069 \pm
+0.012</span></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><span class="math inline">0</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Naive CV does not merely overstate the chosen model’s skill—it
+chooses the <em>wrong model, every time</em>. In <span
+class="math inline">50</span> of <span class="math inline">50</span>
+repetitions it selects <span class="math inline">k</span>NN with <span
+class="math inline">k=10</span>, the most local model in the menu and,
+by the mechanism of Section <a href="#sec:interaction"
+data-reference-type="ref" data-reference="sec:interaction">6.1</a>, the
+best leakage harvester: with persistent features, a test point’s nearest
+neighbors in feature space <em>are</em> its temporal neighbors, whose
+overlapping labels contain the answer. The same locality that maximizes
+the leak makes it the menu’s <em>worst</em> true model (forward IC <span
+class="math inline">0.012</span>, against ridge’s <span
+class="math inline">0.059</span>). Naive CV claims <span
+class="math inline">0.422</span> for this pick; its true skill is <span
+class="math inline">0.012</span>—an optimism of <span
+class="math inline">+0.410</span>. (A small part of any CV-vs-truth
+optimism is a benign train-size effect—CV models train on <span
+class="math inline">4/5</span> of the data while the truth refits on all
+of it—but that effect is shared by every splitter and is dwarfed here by
+the leakage term.) Under leakage, CV ranks models by their capacity to
+exploit the leak, which here is anti-correlated with true skill.</p>
+<p>Purged CV repairs the decision, not just the number. It picks the
+truly best candidate (ridge) most often (<span
+class="math inline">23/50</span>), distributes the rest across the menu
+(<span class="math inline">\text{RF}_{d8}</span> <span
+class="math inline">9</span>, <span class="math inline">k</span>NN<span
+class="math inline">_{10}</span> <span class="math inline">9</span>,
+<span class="math inline">k</span>NN<span
+class="math inline">_{50}</span> <span class="math inline">5</span>,
+<span class="math inline">\text{RF}_{d3}</span> <span
+class="math inline">4</span>), claims <span
+class="math inline">0.053</span> where the truth is <span
+class="math inline">0.042</span> (optimism <span
+class="math inline">+0.012 \pm 0.020</span>, indistinguishable from
+zero), and cuts regret in half (<span class="math inline">0.056 \to
+0.027</span> against an oracle of <span
+class="math inline">0.069</span>). The end-to-end payoff, the only
+number a practitioner ultimately cares about: switching the selection
+procedure from naive to purged CV raises the deployed model’s true
+forward IC by <span class="math inline">+0.029 \pm 0.012</span>, with
+purged winning in <span class="math inline">64\%</span> of repetitions,
+tying in <span class="math inline">18\%</span>, and losing in <span
+class="math inline">18\%</span>. On a population signal of <span
+class="math inline">0.100</span>, the choice of validation scheme is
+worth more than a quarter of the signal itself.</p>
+<figure id="fig:selection" data-latex-placement="t">
+<img src="/figures/fig_selection.svg" style="width:92.0%" />
+<figcaption>Model selection with a genuine signal (population IC <span
+class="math inline">0.100</span>, dotted line; <span
+class="math inline">50</span> repetitions; <span
+class="math inline">95\%</span> CIs). (a) True forward IC of the model
+each procedure selects: naive CV <span class="math inline">0.012</span>,
+purged CV <span class="math inline">0.042</span>, oracle <span
+class="math inline">0.069</span>. (b) Pick frequencies; tick labels
+carry each candidate’s measured true forward IC. Naive CV picks <span
+class="math inline">k</span>NN(<span class="math inline">10</span>)—the
+menu’s truly worst model but its best leakage harvester—in <span
+class="math inline">50</span> of <span class="math inline">50</span>
+repetitions; purged CV picks ridge, the truly best, most often (<span
+class="math inline">46\%</span>).</figcaption>
+</figure>
+<h1 id="sec:discussion">Discussion</h1>
+<h4 id="the-reconciliation.">The reconciliation.</h4>
+<p>The two literatures that motivated this study are both right, about
+different regimes, and the experiment locates the boundary. <span
+class="citation" data-cites="bergmeir2018note">Bergmeir et al.
+(2018)</span>’s validity result and the empirical pro-CV findings <span
+class="citation"
+data-cites="bergmeir2012use cerqueira2020evaluating">(Bergmeir and
+Benítez 2012; Cerqueira et al. 2020)</span> concern settings that live
+on the axes of Table <a href="#tab:interaction"
+data-reference-type="ref" data-reference="tab:interaction">1</a>:
+one-step labels (no overlap) or, more generally, no mechanism by which a
+model can look up a test sample’s label content from training points.
+The financial-ML warnings <span class="citation"
+data-cites="lopezdeprado2018advances">(López de Prado 2018)</span>
+concern the product region: multi-period forward labels <em>and</em>
+features persistent enough to index temporal neighborhoods. Neither
+overlap nor persistence alone is dangerous; their product is, and it
+grows quickly (<span class="math inline">+0.31</span> already at <span
+class="math inline">h=5</span>, <span
+class="math inline">\phi=0.97</span> for a flexible model). The
+practical diagnostic is correspondingly simple: count overlapping
+train/test label-window pairs (our released checker does exactly this)
+and ask whether any feature is persistent enough to act as an index. If
+either answer is “no,” naive CV’s mean is fine in this mechanism’s
+terms; if both are “yes,” it is not—and no amount of averaging over
+folds will save it, since the bias is positive in every repetition.</p>
+<h4 id="a-practical-recipe.">A practical recipe.</h4>
+<p>The decomposition in Sections <a href="#sec:blocking"
+data-reference-type="ref" data-reference="sec:blocking">6.2</a>–<a
+href="#sec:costs" data-reference-type="ref"
+data-reference="sec:costs">6.4</a> supports an ordered prescription. (i)
+<em>Always use contiguous folds.</em> Blocking is free—no data
+discarded—and removes nearly all of the mean bias; shuffled folds on
+overlapping labels are indefensible. (ii) <em>Purge for the
+guarantee.</em> At <span class="math inline">h \ll T</span> purging
+changes the mean estimate by approximately nothing, but it costs only
+<span class="math inline">1.2\%</span> of training candidates and
+converts “small by arithmetic” into “zero by construction”—insurance
+that becomes load-bearing exactly when <span
+class="math inline">h</span> grows relative to the fold length, where
+the boundary arithmetic stops being second-order. For model
+<em>selection</em>, use purged CV unconditionally: that is where the
+bias becomes a wrong decision and where we measure the payoff (<span
+class="math inline">+0.029</span> forward IC). (iii) <em>Treat the
+embargo as a measured response to return-derived features, not a default
+tax.</em> In our design—exogenous features, the pure overlap
+channel—zero embargo left no residual optimism in any of the ten arms,
+and signal persistence up to <span class="math inline">0.995</span> did
+not change that. The embargo’s justification is a different channel
+(features computed from returns echoing the test block), which we did
+not test; if your features are return-derived, measure the required
+embargo rather than assuming <span class="math inline">1\%</span>. (iv)
+<em>Budget for pessimism.</em> Honest contiguous CV under heavy overlap
+reads low (<span class="math inline">-0.01</span> to <span
+class="math inline">-0.10</span> in our arms) relative to true forward
+skill, and its dispersion is <span class="math inline">{\sim}20\%</span>
+higher—costs of contiguity, not of purging. A practitioner comparing an
+honest pipeline against a remembered naive baseline should expect the
+honest number to look worse twice over: the phantom is gone, and the
+estimator is conservative.</p>
+<h4 id="why-the-selection-result-is-the-important-one.">Why the
+selection result is the important one.</h4>
+<p>Estimation bias can in principle be discounted by a sufficiently
+skeptical reader; selection bias cannot, because it changes which model
+exists downstream. The mechanism is adversarial in the precise sense
+that the leak is not noise added to all candidates equally—it is a
+reward for memorization capacity, so CV under leakage <em>sorts</em> the
+menu by the wrong criterion. Our menu makes this stark (the truly worst
+model wins <span class="math inline">50/50</span>), but the logic is
+general: any hyperparameter that controls locality or capacity (tree
+depth, <span class="math inline">k</span>, bandwidth, attention window)
+will be pushed toward the leakage-maximizing end by naive CV on
+overlapping labels. This connects the split-induced channel measured
+here to the selection-induced channel of <span class="citation"
+data-cites="bailey2014pseudo bailey2017probability">Bailey et al. (2014,
+2017)</span>: leaky validation scores are exactly the kind of inflated,
+correlated trial statistics that multiple-testing corrections assume
+away.</p>
+<h1 id="sec:limitations">Limitations</h1>
+<p>Our features are <em>exogenous</em> AR(1) processes; no feature is
+computed from past returns. This isolates the overlap channel cleanly
+but excludes the channel that motivates the embargo—return-derived
+features (rolling statistics of returns) whose post-test values
+mechanically contain test-block information. Our embargo-bought-nothing
+result therefore delimits, and does not refute, the embargo; testing the
+return-derived case with the same forward-truth protocol is the natural
+next experiment. Return innovations are Gaussian and i.i.d.; volatility
+clustering, fat tails, and regime shifts would interact with both the
+leak and the pessimism in ways we do not measure. Horizons satisfy <span
+class="math inline">h \ll T</span> (<span class="math inline">h/T \le
+2.5\%</span>); when label windows are long relative to fold length,
+blocking’s boundary arithmetic stops being second-order, and purging’s
+<em>mean</em> contribution should grow—our claim that blocking suffices
+in the mean is a claim about the tested regime, not a theorem. The model
+set is small and standard (ridge, random forests, <span
+class="math inline">k</span>NN, logistic); the leak’s magnitude is
+model-dependent, and more aggressive memorizers (boosting,
+nearest-neighbor ensembles, deep networks) plausibly absorb more. The
+calibration criterion involves a threshold (<span
+class="math inline">0.01</span>) and a CI rule, both disclosed and fixed
+before the sweep. Finally, the population IC is derived in closed form
+only for a single signal feature, which is why the genuine-signal arms
+carry one; the IC is the primary metric throughout, with the
+sign-strategy Sharpe recorded as a secondary check.</p>
+<h1 id="conclusion">Conclusion</h1>
+<p>We measured, against known ground truth, how much of financial
+machine learning’s purging prescription is load-bearing. The leakage it
+targets is real and large, but it is an <em>interaction</em>:
+overlapping forward labels and persistent features jointly produce
+phantom CV skill up to <span class="math inline">+0.56</span> IC under
+an exact null, while either ingredient alone produces none—which
+reconciles the textbook warning of <span class="citation"
+data-cites="lopezdeprado2018advances">López de Prado (2018)</span> with
+the validity results of <span class="citation"
+data-cites="bergmeir2018note">Bergmeir et al. (2018)</span>; each
+describes one regime of the same surface. Of the remedy’s three
+components, contiguous folds do nearly all of the mean-bias work at
+<span class="math inline">h \ll T</span>; purging costs <span
+class="math inline">1.2\%</span> of the training data and upgrades the
+arithmetic to a guarantee of zero overlapping pairs; the embargo, for
+exogenous features, bought nothing at any tested persistence —a negative
+result we report with its scope, since return-derived features are the
+case it exists for and remain untested here. The unambiguous payoff of
+purged CV is decisional: under leakage, cross-validation ranks models by
+their capacity to exploit the leak, selecting the truly worst candidate
+in <span class="math inline">50</span> of <span
+class="math inline">50</span> trials; purging restores honest selection
+and lifts deployed forward skill by <span class="math inline">+0.029 \pm
+0.012</span> on a <span class="math inline">0.100</span> signal. Use
+contiguous folds always; purge for the guarantee and for every selection
+decision; embargo when—and by how much—your features, not your habits,
+require it.</p>
+<h4 id="reproducibility.">Reproducibility.</h4>
+<p>All experiments are deterministic given the released seeds. A single
+command (<code>python scripts/run_all.py</code>) regenerates every
+record and summary statistic—the file <code>results/results.json</code>
+and four per-record CSV files—and the package’s figures module
+regenerates every figure from those results; a companion script
+(<code>scripts/check_paper_numbers.py</code>) asserts that every number
+quoted in this paper matches the generated results. The splitters are
+implemented from scratch, and the test suite includes an exhaustive
+proof that the purged splitters produce zero overlapping train/test
+label-window pairs on every tested configuration. The data-generating
+process, splitters, evaluation harness, and analysis are provided as an
+open-source package.</p>
+<h1 id="references">References</h1><div id="refs" class="references csl-bib-body hanging-indent"
+role="list">
+<div id="ref-arlot2010survey" class="csl-entry" role="listitem">
+Arlot, Sylvain, and Alain Celisse. 2010. <span>“A Survey of
+Cross-Validation Procedures for Model Selection.”</span> <em>Statistics
+Surveys</em> 4: 40–79. <a
+href="https://doi.org/10.1214/09-SS054">https://doi.org/10.1214/09-SS054</a>.
+</div>
+<div id="ref-bailey2014pseudo" class="csl-entry" role="listitem">
+Bailey, David H., Jonathan M. Borwein, Marcos López de Prado, and Qiji
+Jim Zhu. 2014. <span>“Pseudo-Mathematics and Financial Charlatanism: The
+Effects of Backtest Overfitting on Out-of-Sample Performance.”</span>
+<em>Notices of the American Mathematical Society</em> 61 (5): 458–71. <a
+href="https://doi.org/10.1090/noti1105">https://doi.org/10.1090/noti1105</a>.
+</div>
+<div id="ref-bailey2017probability" class="csl-entry" role="listitem">
+Bailey, David H., Jonathan M. Borwein, Marcos López de Prado, and Qiji
+Jim Zhu. 2017. <span>“The Probability of Backtest Overfitting.”</span>
+<em>Journal of Computational Finance</em> 20 (4): 39–69. <a
+href="https://doi.org/10.21314/JCF.2016.322">https://doi.org/10.21314/JCF.2016.322</a>.
+</div>
+<div id="ref-bergmeir2012use" class="csl-entry" role="listitem">
+Bergmeir, Christoph, and José M. Benítez. 2012. <span>“On the Use of
+Cross-Validation for Time Series Predictor Evaluation.”</span>
+<em>Information Sciences</em> 191: 192–213. <a
+href="https://doi.org/10.1016/j.ins.2011.12.028">https://doi.org/10.1016/j.ins.2011.12.028</a>.
+</div>
+<div id="ref-bergmeir2018note" class="csl-entry" role="listitem">
+Bergmeir, Christoph, Rob J. Hyndman, and Bonsoo Koo. 2018. <span>“A Note
+on the Validity of Cross-Validation for Evaluating Autoregressive Time
+Series Prediction.”</span> <em>Computational Statistics &amp; Data
+Analysis</em> 120: 70–83. <a
+href="https://doi.org/10.1016/j.csda.2017.11.003">https://doi.org/10.1016/j.csda.2017.11.003</a>.
+</div>
+<div id="ref-brittenjones2011improved" class="csl-entry"
+role="listitem">
+Britten-Jones, Mark, Anthony Neuberger, and Ingmar Nolte. 2011.
+<span>“Improved Inference in Regression with Overlapping
+Observations.”</span> <em>Journal of Business Finance &amp;
+Accounting</em> 38 (5–6): 657–83. <a
+href="https://doi.org/10.1111/j.1468-5957.2011.02244.x">https://doi.org/10.1111/j.1468-5957.2011.02244.x</a>.
+</div>
+<div id="ref-burman1994crossvalidatory" class="csl-entry"
+role="listitem">
+Burman, Prabir, Edmond Chow, and Deborah Nolan. 1994. <span>“A
+Cross-Validatory Method for Dependent Data.”</span> <em>Biometrika</em>
+81 (2): 351–58. <a
+href="https://doi.org/10.1093/biomet/81.2.351">https://doi.org/10.1093/biomet/81.2.351</a>.
+</div>
+<div id="ref-cerqueira2020evaluating" class="csl-entry" role="listitem">
+Cerqueira, Vitor, Luís Torgo, and Igor Mozetič. 2020. <span>“Evaluating
+Time Series Forecasting Models: An Empirical Study on Performance
+Estimation Methods.”</span> <em>Machine Learning</em> 109: 1997–2028. <a
+href="https://doi.org/10.1007/s10994-020-05910-7">https://doi.org/10.1007/s10994-020-05910-7</a>.
+</div>
+<div id="ref-hammerla2015lets" class="csl-entry" role="listitem">
+Hammerla, Nils Y., and Thomas Plötz. 2015. <span>“Let’s (Not) Stick
+Together: Pairwise Similarity Biases Cross-Validation in Activity
+Recognition.”</span> <em>Proceedings of the 2015 ACM International Joint
+Conference on Pervasive and Ubiquitous Computing (UbiComp ’15)</em> (New
+York, NY), 1041–51. <a
+href="https://doi.org/10.1145/2750858.2807551">https://doi.org/10.1145/2750858.2807551</a>.
+</div>
+<div id="ref-hansen1980forward" class="csl-entry" role="listitem">
+Hansen, Lars Peter, and Robert J. Hodrick. 1980. <span>“Forward Exchange
+Rates as Optimal Predictors of Future Spot Rates: An Econometric
+Analysis.”</span> <em>Journal of Political Economy</em> 88 (5): 829–53.
+<a
+href="https://doi.org/10.1086/260910">https://doi.org/10.1086/260910</a>.
+</div>
+<div id="ref-hansen2012choice" class="csl-entry" role="listitem">
+Hansen, Peter Reinhard, and Allan Timmermann. 2012. <em>Choice of Sample
+Split in Out-of-Sample Forecast Evaluation</em>. Economics Working Paper
+ECO 2012/10. European University Institute.
+</div>
+<div id="ref-hodrick1992dividend" class="csl-entry" role="listitem">
+Hodrick, Robert J. 1992. <span>“Dividend Yields and Expected Stock
+Returns: Alternative Procedures for Inference and Measurement.”</span>
+<em>The Review of Financial Studies</em> 5 (3): 357–86. <a
+href="https://doi.org/10.1093/rfs/5.3.357">https://doi.org/10.1093/rfs/5.3.357</a>.
+</div>
+<div id="ref-kapoor2023leakage" class="csl-entry" role="listitem">
+Kapoor, Sayash, and Arvind Narayanan. 2023. <span>“Leakage and the
+Reproducibility Crisis in Machine-Learning-Based Science.”</span>
+<em>Patterns</em> 4 (9): 100804. <a
+href="https://doi.org/10.1016/j.patter.2023.100804">https://doi.org/10.1016/j.patter.2023.100804</a>.
+</div>
+<div id="ref-kaufman2012leakage" class="csl-entry" role="listitem">
+Kaufman, Shachar, Saharon Rosset, Claudia Perlich, and Ori Stitelman.
+2012. <span>“Leakage in Data Mining: Formulation, Detection, and
+Avoidance.”</span> <em>ACM Transactions on Knowledge Discovery from
+Data</em> 6 (4): 15:1–21. <a
+href="https://doi.org/10.1145/2382577.2382579">https://doi.org/10.1145/2382577.2382579</a>.
+</div>
+<div id="ref-lopezdeprado2018advances" class="csl-entry"
+role="listitem">
+López de Prado, Marcos. 2018. <em>Advances in Financial Machine
+Learning</em>. Wiley.
+</div>
+<div id="ref-racine2000consistent" class="csl-entry" role="listitem">
+Racine, Jeffrey S. 2000. <span>“Consistent Cross-Validatory
+Model-Selection for Dependent Data: <span
+class="math inline">hv</span>-Block Cross-Validation.”</span>
+<em>Journal of Econometrics</em> 99 (1): 39–61. <a
+href="https://doi.org/10.1016/S0304-4076(00)00030-0">https://doi.org/10.1016/S0304-4076(00)00030-0</a>.
+</div>
+<div id="ref-tashman2000out" class="csl-entry" role="listitem">
+Tashman, Leonard J. 2000. <span>“Out-of-Sample Tests of Forecasting
+Accuracy: An Analysis and Review.”</span> <em>International Journal of
+Forecasting</em> 16 (4): 437–50. <a
+href="https://doi.org/10.1016/S0169-2070(00)00065-0">https://doi.org/10.1016/S0169-2070(00)00065-0</a>.
+</div>
+</div>
+<section id="footnotes" class="footnotes footnotes-end-of-document"
+role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>The splitting procedures under test, including the
+specific purge-and-embargo construction we implement, follow the
+author’s own earlier practitioner explainer on purged cross-validation
+(a marketmaker.cc article). The present paper is a controlled self-audit
+of advice the author has himself circulated, not an attack on a third
+party.<a href="#fnref1" class="footnote-back"
+role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>

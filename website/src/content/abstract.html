@@ -1,0 +1,66 @@
+<p>Financial machine learning teaches that <span
+class="math inline">k</span>-fold cross-validation “fails in finance”
+because forward-looking labels overlap, and prescribes purged <span
+class="math inline">k</span>-fold CV with an embargo as the remedy; the
+forecasting literature proves, to the contrary, that standard <span
+class="math inline">k</span>-fold CV is valid for autoregressive
+prediction. We reconcile the two in a controlled simulation in which
+true predictability is known exactly—including exactly zero—and leakage
+is measured directly as the CV estimate minus the true forward skill of
+the same fitted models. Under the null, the phantom skill of naive
+shuffled <span class="math inline">k</span>-fold is an
+<em>interaction</em> of two ingredients. With <span
+class="math inline">h</span>-period overlapping labels <em>and</em>
+persistent features (AR(1), <span class="math inline">\phi=0.97</span>),
+a random forest reports a cross-validated information coefficient of
+<span class="math inline">+0.31</span>/<span
+class="math inline">+0.46</span>/<span class="math inline">+0.56</span>
+(<span class="math inline">\pm0.05</span>) at <span
+class="math inline">h=5/10/20</span> where the truth is zero (ridge
+<span class="math inline">+0.18\pm0.04</span>; classification AUC <span
+class="math inline">0.623</span> reported vs. <span
+class="math inline">0.504</span> true, <span
+class="math inline">+0.119\pm0.010</span>). Remove either ingredient and
+the phantom vanishes—at most <span class="math inline">+0.005</span> at
+<span class="math inline">h=1</span> for any <span
+class="math inline">\phi</span>, and at most <span
+class="math inline">+0.005</span> at <span
+class="math inline">\phi=0</span> for any <span
+class="math inline">h</span>—exactly the regimes the validity results
+describe. Decomposing the remedy: <em>blocked</em> (contiguous) <span
+class="math inline">k</span>-fold without any purging already removes
+nearly all of the <em>mean</em> bias (residual <span
+class="math inline">-0.05\pm0.04</span> at the worst-leakage cell); at
+<span class="math inline">h \ll T</span> purging buys the worst-case
+guarantee, not the average. Purged <span
+class="math inline">k</span>-fold leaves no residual optimism at
+<em>zero</em> embargo in all ten arms tested (five signal-persistence
+arms <span class="math inline">\times</span> two models, persistence up
+to <span class="math inline">0.995</span>); the residual is negative
+(<span class="math inline">-0.010</span> to <span
+class="math inline">-0.102</span> under the pooled-prediction scoring
+convention, a contiguous-fold pessimism) and flat across the embargo
+grid—the embargo bought nothing in this design, whose features are
+exogenous; the return-derived-feature case that motivates embargoes is
+explicitly out of scope. The costs are modest: purging discards <span
+class="math inline">1.2</span>–<span class="math inline">1.3\%</span> of
+training candidates (by batch geometry) and CV dispersion rises <span
+class="math inline">21\%</span> (<span class="math inline">0.048 \to
+0.058</span>), almost all of it from contiguity rather than from the
+purge itself; walk-forward keeps <span class="math inline">72.7\%</span>
+of the data with twice the fold-level dispersion. The payoff is model
+selection: with a genuine signal (population IC <span
+class="math inline">0.100</span>), naive CV selects the
+leakage-maximizing <span class="math inline">k</span>NN in <span
+class="math inline">50</span> of <span class="math inline">50</span>
+repetitions (claimed IC <span class="math inline">0.422</span>, true
+<span class="math inline">0.012</span>; optimism <span
+class="math inline">+0.410</span>), while purged CV selects honestly
+(optimism <span class="math inline">+0.012</span>), lifting the true
+forward IC of the deployed model from <span
+class="math inline">0.012</span> to <span
+class="math inline">0.042</span>—a gain of <span
+class="math inline">+0.029\pm0.012</span> (wins <span
+class="math inline">64\%</span>, ties <span
+class="math inline">18\%</span>; oracle <span
+class="math inline">0.069</span>).</p>
