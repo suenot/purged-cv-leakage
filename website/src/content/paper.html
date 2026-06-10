@@ -3,10 +3,10 @@
 class="math inline">h</span>-period return, consecutive training samples
 share <span class="math inline">h-1</span> of their <span
 class="math inline">h</span> label returns. <span class="citation"
-data-cites="lopezdeprado2018advances">López de Prado (2018)</span>
-argues that this overlap leaks information between cross-validation
-folds, inflates measured performance, and is one reason backtested
-strategies fail in production; his prescription—purged <span
+data-cites="lopezdeprado2018advances">[15]</span> argues that this
+overlap leaks information between cross-validation folds, inflates
+measured performance, and is one reason backtested strategies fail in
+production; his prescription—purged <span
 class="math inline">k</span>-fold cross-validation with an embargo—has
 become standard practice in financial machine learning, shipped in
 widely used open-source libraries and adopted essentially on textbook
@@ -16,19 +16,19 @@ control it, and how much of it each component of the remedy (contiguous
 folds, purging, embargo) removes have not been measured.</p>
 <p>The question is sharper than it looks, because a neighboring
 literature says the opposite. <span class="citation"
-data-cites="bergmeir2018note">Bergmeir et al. (2018)</span> prove that
-standard <span class="math inline">k</span>-fold cross-validation is
-<em>valid</em> for purely autoregressive prediction with uncorrelated
-errors, and empirical comparisons <span class="citation"
-data-cites="bergmeir2012use cerqueira2020evaluating">(Bergmeir and
-Benítez 2012; Cerqueira et al. 2020)</span> repeatedly find vanilla or
-blocked CV competitive with the out-of-sample evaluations <span
-class="citation" data-cites="tashman2000out">(Tashman 2000)</span> that
-practitioners trust. If naive CV is provably fine for time series in
-those settings, the case for aggressive purging must rest on a specific
-mechanism that those settings lack—and identifying that mechanism is a
-prerequisite for knowing when purging is necessary, when it is harmless
-insurance, and when it wastes data.</p>
+data-cites="bergmeir2018note">[5]</span> prove that standard <span
+class="math inline">k</span>-fold cross-validation is <em>valid</em> for
+purely autoregressive prediction with uncorrelated errors, and empirical
+comparisons <span class="citation"
+data-cites="bergmeir2012use cerqueira2020evaluating">[4, 8]</span>
+repeatedly find vanilla or blocked CV competitive with the out-of-sample
+evaluations <span class="citation"
+data-cites="tashman2000out">[17]</span> that practitioners trust. If
+naive CV is provably fine for time series in those settings, the case
+for aggressive purging must rest on a specific mechanism that those
+settings lack—and identifying that mechanism is a prerequisite for
+knowing when purging is necessary, when it is harmless insurance, and
+when it wastes data.</p>
 <p>This paper measures the mechanism directly.<a href="#fn1"
 class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> We
 build a simulation in which the true predictability of every feature is
@@ -101,13 +101,13 @@ class="math inline">+0.564\pm0.048</span> IC when both are present—and
 model-dependent (random forest absorbs roughly three times more of the
 leak than ridge; the same pattern holds for classification AUC). This
 measurement offers, to our knowledge, the first joint account of the
-<span class="citation" data-cites="bergmeir2018note">Bergmeir et al.
-(2018)</span> validity results and the financial-ML failure mode—by
-analogy rather than replication: the Bergmeir-line experiments use
-endogenous lagged-target features, a class our embargo discussion
-declares out of scope, so we explain <em>why</em> their settings sit on
-the harmless axes rather than re-run them (Section <a
-href="#sec:interaction" data-reference-type="ref"
+<span class="citation" data-cites="bergmeir2018note">[5]</span> validity
+results and the financial-ML failure mode—by analogy rather than
+replication: the Bergmeir-line experiments use endogenous lagged-target
+features, a class our embargo discussion declares out of scope, so we
+explain <em>why</em> their settings sit on the harmless axes rather than
+re-run them (Section <a href="#sec:interaction"
+data-reference-type="ref"
 data-reference="sec:interaction">6.1</a>).</p></li>
 <li><p>A decomposition of the remedy: contiguous blocks alone remove
 nearly all mean bias; purging adds the worst-case guarantee at a <span
@@ -135,13 +135,13 @@ data-reference="sec:selection">6.5</a>).</p></li>
 dependence.</h4>
 <p>The difficulties serial dependence creates for cross-validation were
 identified long before financial machine learning popularized them.
-<span class="citation" data-cites="burman1994crossvalidatory">Burman et
-al. (1994)</span> introduced <span class="math inline">h</span>-block
-cross-validation, deleting the <span class="math inline">h</span>
-observations on either side of each test point so that the training set
-is approximately independent of it, and <span class="citation"
-data-cites="racine2000consistent">Racine (2000)</span> extended this to
-<span class="math inline">hv</span>-block cross-validation, additionally
+<span class="citation" data-cites="burman1994crossvalidatory">[7]</span>
+introduced <span class="math inline">h</span>-block cross-validation,
+deleting the <span class="math inline">h</span> observations on either
+side of each test point so that the training set is approximately
+independent of it, and <span class="citation"
+data-cites="racine2000consistent">[16]</span> extended this to <span
+class="math inline">hv</span>-block cross-validation, additionally
 removing a contiguous validation block and proving consistency of model
 selection for general stationary processes. Both constructions are
 direct ancestors of the purging-and-embargo procedure now standard in
@@ -150,26 +150,25 @@ deleted observations would otherwise contribute for a given dependence
 structure—<span class="math inline">h</span> is treated as a tuning
 constant, not a measured requirement. The broader theory of
 cross-validation, including its known failure modes, is surveyed by
-<span class="citation" data-cites="arlot2010survey">Arlot and Celisse
-(2010)</span>, who note that the i.i.d. assumption is load-bearing for
-most risk-estimation guarantees and that corrections for dependent data
-remain comparatively underdeveloped.</p>
+<span class="citation" data-cites="arlot2010survey">[1]</span>, who note
+that the i.i.d. assumption is load-bearing for most risk-estimation
+guarantees and that corrections for dependent data remain comparatively
+underdeveloped.</p>
 <h4 id="evaluation-protocols-for-time-series-prediction.">Evaluation
 protocols for time-series prediction.</h4>
 <p>In forecasting, the default response to dependence has been
 out-of-sample (walk-forward) evaluation <span class="citation"
-data-cites="tashman2000out">(Tashman 2000)</span>. <span
-class="citation" data-cites="bergmeir2012use">Bergmeir and Benítez
-(2012)</span> compared blocked and standard cross-validation against
-out-of-sample evaluation across simulated and real series and found,
-perhaps surprisingly, that cross-validation variants were competitive
-and often preferable on efficiency grounds. <span class="citation"
-data-cites="bergmeir2018note">Bergmeir et al. (2018)</span> sharpened
-this into a theoretical result: for purely autoregressive models with
-uncorrelated errors, standard <span class="math inline">k</span>-fold
-cross-validation is <em>valid</em>—the feared temporal leakage does not
-materialize. Large-scale comparisons by <span class="citation"
-data-cites="cerqueira2020evaluating">Cerqueira et al. (2020)</span>
+data-cites="tashman2000out">[17]</span>. <span class="citation"
+data-cites="bergmeir2012use">[4]</span> compared blocked and standard
+cross-validation against out-of-sample evaluation across simulated and
+real series and found, perhaps surprisingly, that cross-validation
+variants were competitive and often preferable on efficiency grounds.
+<span class="citation" data-cites="bergmeir2018note">[5]</span>
+sharpened this into a theoretical result: for purely autoregressive
+models with uncorrelated errors, standard <span
+class="math inline">k</span>-fold cross-validation is <em>valid</em>—the
+feared temporal leakage does not materialize. Large-scale comparisons by
+<span class="citation" data-cites="cerqueira2020evaluating">[8]</span>
 complicate the picture further, finding that the best protocol depends
 on series length and stationarity. This line of work sits in unresolved
 tension with financial practice: if naive cross-validation is provably
@@ -181,61 +180,58 @@ design isolates exactly that combination and maps the boundary between
 the two regimes.</p>
 <h4 id="purging-embargo-and-backtest-overfitting-in-finance.">Purging,
 embargo, and backtest overfitting in finance.</h4>
-<p><span class="citation" data-cites="lopezdeprado2018advances">López de
-Prado (2018)</span> gives the canonical statement of the problem in
-financial machine learning: when labels are computed from forward
-windows of returns, observations whose label intervals overlap leak
-information between training and test folds, inflating measured
-performance; his Chapter 7 prescribes purged <span
+<p><span class="citation"
+data-cites="lopezdeprado2018advances">[15]</span> gives the canonical
+statement of the problem in financial machine learning: when labels are
+computed from forward windows of returns, observations whose label
+intervals overlap leak information between training and test folds,
+inflating measured performance; his Chapter 7 prescribes purged <span
 class="math inline">k</span>-fold cross-validation with an embargo as
 the remedy. The prescription has been adopted essentially on textbook
 authority—implementations ship in widely used open-source backtesting
 libraries—but the supporting evidence is illustrative rather than
 quantitative. Closely related is the literature on backtest overfitting:
-<span class="citation" data-cites="bailey2014pseudo">Bailey et al.
-(2014)</span> showed how multiple testing over strategy configurations
-manufactures spurious Sharpe ratios, and <span class="citation"
-data-cites="bailey2017probability">Bailey et al. (2017)</span>
-operationalized this as the probability of backtest overfitting,
-estimated via combinatorially symmetric cross-validation. <span
-class="citation" data-cites="hansen2012choice">Hansen and Timmermann
-(2012)</span> document a complementary channel, the mining of the
-in-sample/out-of-sample split point itself. These papers quantify
-<em>selection-induced</em> phantom skill; none measures the
-<em>split-induced</em> phantom skill that purging targets, nor how the
-two interact when leaky validation scores feed a model-selection
-step—the interaction our Section <a href="#sec:selection"
-data-reference-type="ref" data-reference="sec:selection">6.5</a>
-measures directly.</p>
+<span class="citation" data-cites="bailey2014pseudo">[2]</span> showed
+how multiple testing over strategy configurations manufactures spurious
+Sharpe ratios, and <span class="citation"
+data-cites="bailey2017probability">[3]</span> operationalized this as
+the probability of backtest overfitting, estimated via combinatorially
+symmetric cross-validation. <span class="citation"
+data-cites="hansen2012choice">[11]</span> document a complementary
+channel, the mining of the in-sample/out-of-sample split point itself.
+These papers quantify <em>selection-induced</em> phantom skill; none
+measures the <em>split-induced</em> phantom skill that purging targets,
+nor how the two interact when leaky validation scores feed a
+model-selection step—the interaction our Section <a
+href="#sec:selection" data-reference-type="ref"
+data-reference="sec:selection">6.5</a> measures directly.</p>
 <h4 id="leakage-as-a-general-ml-failure-mode.">Leakage as a general ML
 failure mode.</h4>
 <p>Outside finance, <span class="citation"
-data-cites="kaufman2012leakage">Kaufman et al. (2012)</span> provided
-the standard formulation of leakage in data mining: the use of
-information at training time that would be illegitimately unavailable at
-deployment. <span class="citation"
-data-cites="hammerla2015lets">Hammerla and Plötz (2015)</span>
+data-cites="kaufman2012leakage">[14]</span> provided the standard
+formulation of leakage in data mining: the use of information at
+training time that would be illegitimately unavailable at deployment.
+<span class="citation" data-cites="hammerla2015lets">[9]</span>
 demonstrated a structurally identical phenomenon in activity
 recognition, where similarity between temporally adjacent windowed
 records biases cross-validation upward, and proposed meta-segmented
 folds—effectively purging by another name. <span class="citation"
-data-cites="kapoor2023leakage">Kapoor and Narayanan (2023)</span> survey
-leakage across seventeen scientific fields and identify it as a
-principal driver of the reproducibility crisis in ML-based science, but
-their taxonomy stops at detection and avoidance; the magnitude of bias
-attributable to a given leakage channel, as a function of measurable
-data properties, is left open.</p>
+data-cites="kapoor2023leakage">[13]</span> survey leakage across
+seventeen scientific fields and identify it as a principal driver of the
+reproducibility crisis in ML-based science, but their taxonomy stops at
+detection and avoidance; the magnitude of bias attributable to a given
+leakage channel, as a function of measurable data properties, is left
+open.</p>
 <h4 id="overlapping-observations-in-econometrics.">Overlapping
 observations in econometrics.</h4>
 <p>That overlapping forward returns induce dependence is classical
 econometrics. <span class="citation"
-data-cites="hansen1980forward">Hansen and Hodrick (1980)</span> derived
-corrected inference for regressions with overlapping horizons, <span
-class="citation" data-cites="hodrick1992dividend">Hodrick (1992)</span>
-showed that long-horizon predictive regressions suffer severe
-small-sample distortions under overlap and proposed alternative standard
-errors, and <span class="citation"
-data-cites="brittenjones2011improved">Britten-Jones et al. (2011)</span>
+data-cites="hansen1980forward">[10]</span> derived corrected inference
+for regressions with overlapping horizons, <span class="citation"
+data-cites="hodrick1992dividend">[12]</span> showed that long-horizon
+predictive regressions suffer severe small-sample distortions under
+overlap and proposed alternative standard errors, and <span
+class="citation" data-cites="brittenjones2011improved">[6]</span>
 offered a transformation-based improvement. This literature solved the
 <em>inference</em> problem—standard errors under overlap—decades ago.
 Its <em>evaluation</em> analogue, the bias the same overlap induces in
@@ -304,8 +300,7 @@ contiguous test blocks; every training candidate <span
 class="math inline">i</span> whose interval <span
 class="math inline">[t_i, t_i+h]</span> intersects the union of the test
 block’s intervals is <em>purged</em> <span class="citation"
-data-cites="lopezdeprado2018advances">(López de Prado
-2018)</span>;</p></li>
+data-cites="lopezdeprado2018advances">[15]</span>;</p></li>
 <li><p><strong>purged <span class="math inline">k</span>-fold <span
 class="math inline">+</span> embargo</strong>: additionally, training
 candidates <em>after</em> the test block whose time index lies within
@@ -314,8 +309,8 @@ are dropped, where <span class="math inline">E = \lfloor \varepsilon T
 \rceil</span> and <span class="math inline">\varepsilon</span> is the
 embargo fraction. The embargo is one-sided (after the block), extending
 the right-side purge window—the convention of <span class="citation"
-data-cites="lopezdeprado2018advances">López de Prado (2018)</span> and
-of the reference open-source implementations;</p></li>
+data-cites="lopezdeprado2018advances">[15]</span> and of the reference
+open-source implementations;</p></li>
 <li><p><strong>walk-forward</strong>: expanding-window splits; train on
 <span class="math inline">[0, b)</span>, test on the next contiguous
 block starting at <span class="math inline">b</span>; the first <span
@@ -622,12 +617,11 @@ unreachable. Persistent features with non-overlapping labels produce
 nothing—the neighbors are locatable but their labels share no randomness
 with the test label. This is precisely the reconciliation: the
 autoregressive settings in which <span class="citation"
-data-cites="bergmeir2018note">Bergmeir et al. (2018)</span> prove naive
-CV valid, and in which <span class="citation"
-data-cites="bergmeir2012use">Bergmeir and Benítez (2012)</span> found it
-empirically competitive, sit on these two axes; the standard financial
-configuration (<span class="math inline">h</span>-period forward labels,
-persistent predictors) sits in the product region.</p>
+data-cites="bergmeir2018note">[5]</span> prove naive CV valid, and in
+which <span class="citation" data-cites="bergmeir2012use">[4]</span>
+found it empirically competitive, sit on these two axes; the standard
+financial configuration (<span class="math inline">h</span>-period
+forward labels, persistent predictors) sits in the product region.</p>
 <p>Second, in the product region the bias is enormous relative to any
 realistic signal: <span class="math inline">+0.307 \pm 0.024</span> at
 <span class="math inline">(h{=}5, \phi{=}0.97)</span>, rising to <span
@@ -1178,17 +1172,15 @@ class="math inline">46\%</span>).</figcaption>
 <h4 id="the-reconciliation.">The reconciliation.</h4>
 <p>The two literatures that motivated this study are both right, about
 different regimes, and the experiment locates the boundary. <span
-class="citation" data-cites="bergmeir2018note">Bergmeir et al.
-(2018)</span>’s validity result and the empirical pro-CV findings <span
-class="citation"
-data-cites="bergmeir2012use cerqueira2020evaluating">(Bergmeir and
-Benítez 2012; Cerqueira et al. 2020)</span> concern settings that live
-on the axes of Table <a href="#tab:interaction"
-data-reference-type="ref" data-reference="tab:interaction">1</a>:
-one-step labels (no overlap) or, more generally, no mechanism by which a
-model can look up a test sample’s label content from training points.
-The financial-ML warnings <span class="citation"
-data-cites="lopezdeprado2018advances">(López de Prado 2018)</span>
+class="citation" data-cites="bergmeir2018note">[5]</span>’s validity
+result and the empirical pro-CV findings <span class="citation"
+data-cites="bergmeir2012use cerqueira2020evaluating">[4, 8]</span>
+concern settings that live on the axes of Table <a
+href="#tab:interaction" data-reference-type="ref"
+data-reference="tab:interaction">1</a>: one-step labels (no overlap) or,
+more generally, no mechanism by which a model can look up a test
+sample’s label content from training points. The financial-ML warnings
+<span class="citation" data-cites="lopezdeprado2018advances">[15]</span>
 concern the product region: multi-period forward labels <em>and</em>
 features persistent enough to index temporal neighborhoods. Neither
 overlap nor persistence alone is dangerous; their product is, and it
@@ -1249,10 +1241,9 @@ depth, <span class="math inline">k</span>, bandwidth, attention window)
 will be pushed toward the leakage-maximizing end by naive CV on
 overlapping labels. This connects the split-induced channel measured
 here to the selection-induced channel of <span class="citation"
-data-cites="bailey2014pseudo bailey2017probability">Bailey et al. (2014,
-2017)</span>: leaky validation scores are exactly the kind of inflated,
-correlated trial statistics that multiple-testing corrections assume
-away.</p>
+data-cites="bailey2014pseudo bailey2017probability">[2, 3]</span>: leaky
+validation scores are exactly the kind of inflated, correlated trial
+statistics that multiple-testing corrections assume away.</p>
 <h1 id="sec:limitations">Limitations</h1>
 <p>Our features are <em>exogenous</em> AR(1) processes; no feature is
 computed from past returns. This isolates the overlap channel cleanly
@@ -1287,26 +1278,25 @@ overlapping forward labels and persistent features jointly produce
 phantom CV skill up to <span class="math inline">+0.56</span> IC under
 an exact null, while either ingredient alone produces none—which
 reconciles the textbook warning of <span class="citation"
-data-cites="lopezdeprado2018advances">López de Prado (2018)</span> with
-the validity results of <span class="citation"
-data-cites="bergmeir2018note">Bergmeir et al. (2018)</span>; each
-describes one regime of the same surface. Of the remedy’s three
-components, contiguous folds do nearly all of the mean-bias work at
-<span class="math inline">h \ll T</span>; purging costs <span
-class="math inline">1.2\%</span> of the training data and upgrades the
-arithmetic to a guarantee of zero overlapping pairs; the embargo, for
-exogenous features, bought nothing at any tested persistence —a negative
-result we report with its scope, since return-derived features are the
-case it exists for and remain untested here. The unambiguous payoff of
-purged CV is decisional: under leakage, cross-validation ranks models by
-their capacity to exploit the leak, selecting the truly worst candidate
-in <span class="math inline">50</span> of <span
-class="math inline">50</span> trials; purging restores honest selection
-and lifts deployed forward skill by <span class="math inline">+0.029 \pm
-0.012</span> on a <span class="math inline">0.100</span> signal. Use
-contiguous folds always; purge for the guarantee and for every selection
-decision; embargo when—and by how much—your features, not your habits,
-require it.</p>
+data-cites="lopezdeprado2018advances">[15]</span> with the validity
+results of <span class="citation"
+data-cites="bergmeir2018note">[5]</span>; each describes one regime of
+the same surface. Of the remedy’s three components, contiguous folds do
+nearly all of the mean-bias work at <span class="math inline">h \ll
+T</span>; purging costs <span class="math inline">1.2\%</span> of the
+training data and upgrades the arithmetic to a guarantee of zero
+overlapping pairs; the embargo, for exogenous features, bought nothing
+at any tested persistence —a negative result we report with its scope,
+since return-derived features are the case it exists for and remain
+untested here. The unambiguous payoff of purged CV is decisional: under
+leakage, cross-validation ranks models by their capacity to exploit the
+leak, selecting the truly worst candidate in <span
+class="math inline">50</span> of <span class="math inline">50</span>
+trials; purging restores honest selection and lifts deployed forward
+skill by <span class="math inline">+0.029 \pm 0.012</span> on a <span
+class="math inline">0.100</span> signal. Use contiguous folds always;
+purge for the guarantee and for every selection decision; embargo
+when—and by how much—your features, not your habits, require it.</p>
 <h4 id="reproducibility.">Reproducibility.</h4>
 <p>All experiments are deterministic given the released seeds. A single
 command (<code>python scripts/run_all.py</code>) regenerates every
@@ -1320,117 +1310,144 @@ proof that the purged splitters produce zero overlapping train/test
 label-window pairs on every tested configuration. The data-generating
 process, splitters, evaluation harness, and analysis are provided as an
 open-source package.</p>
-<h1 id="references">References</h1><div id="refs" class="references csl-bib-body hanging-indent"
+<h1 id="references">References</h1><div id="refs" class="references csl-bib-body" data-entry-spacing="1"
 role="list">
 <div id="ref-arlot2010survey" class="csl-entry" role="listitem">
-Arlot, Sylvain, and Alain Celisse. 2010. <span>“A Survey of
-Cross-Validation Procedures for Model Selection.”</span> <em>Statistics
-Surveys</em> 4: 40–79. <a
-href="https://doi.org/10.1214/09-SS054">https://doi.org/10.1214/09-SS054</a>.
+<div class="csl-left-margin">[1] </div><div
+class="csl-right-inline">Sylvain Arlot and Alain Celisse. A survey of
+cross-validation procedures for model selection. <em>Statistics
+Surveys</em>, 4:40–79, 2010. doi: <a
+href="https://doi.org/10.1214/09-SS054">10.1214/09-SS054</a>.</div>
 </div>
 <div id="ref-bailey2014pseudo" class="csl-entry" role="listitem">
-Bailey, David H., Jonathan M. Borwein, Marcos López de Prado, and Qiji
-Jim Zhu. 2014. <span>“Pseudo-Mathematics and Financial Charlatanism: The
-Effects of Backtest Overfitting on Out-of-Sample Performance.”</span>
-<em>Notices of the American Mathematical Society</em> 61 (5): 458–71. <a
-href="https://doi.org/10.1090/noti1105">https://doi.org/10.1090/noti1105</a>.
+<div class="csl-left-margin">[2] </div><div
+class="csl-right-inline">David H. Bailey, Jonathan M. Borwein, Marcos
+López de Prado, and Qiji Jim Zhu. Pseudo-mathematics and financial
+charlatanism: The effects of backtest overfitting on out-of-sample
+performance. <em>Notices of the American Mathematical Society</em>,
+61(5):458–471, 2014. doi: <a
+href="https://doi.org/10.1090/noti1105">10.1090/noti1105</a>.</div>
 </div>
 <div id="ref-bailey2017probability" class="csl-entry" role="listitem">
-Bailey, David H., Jonathan M. Borwein, Marcos López de Prado, and Qiji
-Jim Zhu. 2017. <span>“The Probability of Backtest Overfitting.”</span>
-<em>Journal of Computational Finance</em> 20 (4): 39–69. <a
-href="https://doi.org/10.21314/JCF.2016.322">https://doi.org/10.21314/JCF.2016.322</a>.
+<div class="csl-left-margin">[3] </div><div
+class="csl-right-inline">David H. Bailey, Jonathan M. Borwein, Marcos
+López de Prado, and Qiji Jim Zhu. The probability of backtest
+overfitting. <em>Journal of Computational Finance</em>, 20(4):39–69,
+2017. doi: <a
+href="https://doi.org/10.21314/JCF.2016.322">10.21314/JCF.2016.322</a>.</div>
 </div>
 <div id="ref-bergmeir2012use" class="csl-entry" role="listitem">
-Bergmeir, Christoph, and José M. Benítez. 2012. <span>“On the Use of
-Cross-Validation for Time Series Predictor Evaluation.”</span>
-<em>Information Sciences</em> 191: 192–213. <a
-href="https://doi.org/10.1016/j.ins.2011.12.028">https://doi.org/10.1016/j.ins.2011.12.028</a>.
+<div class="csl-left-margin">[4] </div><div
+class="csl-right-inline">Christoph Bergmeir and José M. Benítez. On the
+use of cross-validation for time series predictor evaluation.
+<em>Information Sciences</em>, 191:192–213, 2012. doi: <a
+href="https://doi.org/10.1016/j.ins.2011.12.028">10.1016/j.ins.2011.12.028</a>.</div>
 </div>
 <div id="ref-bergmeir2018note" class="csl-entry" role="listitem">
-Bergmeir, Christoph, Rob J. Hyndman, and Bonsoo Koo. 2018. <span>“A Note
-on the Validity of Cross-Validation for Evaluating Autoregressive Time
-Series Prediction.”</span> <em>Computational Statistics &amp; Data
-Analysis</em> 120: 70–83. <a
-href="https://doi.org/10.1016/j.csda.2017.11.003">https://doi.org/10.1016/j.csda.2017.11.003</a>.
+<div class="csl-left-margin">[5] </div><div
+class="csl-right-inline">Christoph Bergmeir, Rob J. Hyndman, and Bonsoo
+Koo. A note on the validity of cross-validation for evaluating
+autoregressive time series prediction. <em>Computational Statistics
+&amp; Data Analysis</em>, 120:70–83, 2018. doi: <a
+href="https://doi.org/10.1016/j.csda.2017.11.003">10.1016/j.csda.2017.11.003</a>.
+Shows standard <span class="math inline">k</span>-fold CV is valid for
+purely autoregressive models with uncorrelated errors — the key
+counterpoint.</div>
 </div>
 <div id="ref-brittenjones2011improved" class="csl-entry"
 role="listitem">
-Britten-Jones, Mark, Anthony Neuberger, and Ingmar Nolte. 2011.
-<span>“Improved Inference in Regression with Overlapping
-Observations.”</span> <em>Journal of Business Finance &amp;
-Accounting</em> 38 (5–6): 657–83. <a
-href="https://doi.org/10.1111/j.1468-5957.2011.02244.x">https://doi.org/10.1111/j.1468-5957.2011.02244.x</a>.
+<div class="csl-left-margin">[6] </div><div
+class="csl-right-inline">Mark Britten-Jones, Anthony Neuberger, and
+Ingmar Nolte. Improved inference in regression with overlapping
+observations. <em>Journal of Business Finance &amp; Accounting</em>,
+38(5–6):657–683, 2011. doi: <a
+href="https://doi.org/10.1111/j.1468-5957.2011.02244.x">10.1111/j.1468-5957.2011.02244.x</a>.</div>
 </div>
 <div id="ref-burman1994crossvalidatory" class="csl-entry"
 role="listitem">
-Burman, Prabir, Edmond Chow, and Deborah Nolan. 1994. <span>“A
-Cross-Validatory Method for Dependent Data.”</span> <em>Biometrika</em>
-81 (2): 351–58. <a
-href="https://doi.org/10.1093/biomet/81.2.351">https://doi.org/10.1093/biomet/81.2.351</a>.
+<div class="csl-left-margin">[7] </div><div
+class="csl-right-inline">Prabir Burman, Edmond Chow, and Deborah Nolan.
+A cross-validatory method for dependent data. <em>Biometrika</em>,
+81(2):351–358, 1994. doi: <a
+href="https://doi.org/10.1093/biomet/81.2.351">10.1093/biomet/81.2.351</a>.</div>
 </div>
 <div id="ref-cerqueira2020evaluating" class="csl-entry" role="listitem">
-Cerqueira, Vitor, Luís Torgo, and Igor Mozetič. 2020. <span>“Evaluating
-Time Series Forecasting Models: An Empirical Study on Performance
-Estimation Methods.”</span> <em>Machine Learning</em> 109: 1997–2028. <a
-href="https://doi.org/10.1007/s10994-020-05910-7">https://doi.org/10.1007/s10994-020-05910-7</a>.
+<div class="csl-left-margin">[8] </div><div
+class="csl-right-inline">Vitor Cerqueira, Luís Torgo, and Igor Mozetič.
+Evaluating time series forecasting models: An empirical study on
+performance estimation methods. <em>Machine Learning</em>,
+109:1997–2028, 2020. doi: <a
+href="https://doi.org/10.1007/s10994-020-05910-7">10.1007/s10994-020-05910-7</a>.</div>
 </div>
 <div id="ref-hammerla2015lets" class="csl-entry" role="listitem">
-Hammerla, Nils Y., and Thomas Plötz. 2015. <span>“Let’s (Not) Stick
-Together: Pairwise Similarity Biases Cross-Validation in Activity
-Recognition.”</span> <em>Proceedings of the 2015 ACM International Joint
-Conference on Pervasive and Ubiquitous Computing (UbiComp ’15)</em> (New
-York, NY), 1041–51. <a
-href="https://doi.org/10.1145/2750858.2807551">https://doi.org/10.1145/2750858.2807551</a>.
+<div class="csl-left-margin">[9] </div><div
+class="csl-right-inline">Nils Y. Hammerla and Thomas Plötz. Let’s (not)
+stick together: Pairwise similarity biases cross-validation in activity
+recognition. In <em>Proceedings of the 2015 ACM international joint
+conference on pervasive and ubiquitous computing (UbiComp ’15)</em>,
+pages 1041–1051, 2015. doi: <a
+href="https://doi.org/10.1145/2750858.2807551">10.1145/2750858.2807551</a>.</div>
 </div>
 <div id="ref-hansen1980forward" class="csl-entry" role="listitem">
-Hansen, Lars Peter, and Robert J. Hodrick. 1980. <span>“Forward Exchange
-Rates as Optimal Predictors of Future Spot Rates: An Econometric
-Analysis.”</span> <em>Journal of Political Economy</em> 88 (5): 829–53.
-<a
-href="https://doi.org/10.1086/260910">https://doi.org/10.1086/260910</a>.
+<div class="csl-left-margin">[10] </div><div
+class="csl-right-inline">Lars Peter Hansen and Robert J. Hodrick.
+Forward exchange rates as optimal predictors of future spot rates: An
+econometric analysis. <em>Journal of Political Economy</em>,
+88(5):829–853, 1980. doi: <a
+href="https://doi.org/10.1086/260910">10.1086/260910</a>.</div>
 </div>
 <div id="ref-hansen2012choice" class="csl-entry" role="listitem">
-Hansen, Peter Reinhard, and Allan Timmermann. 2012. <em>Choice of Sample
-Split in Out-of-Sample Forecast Evaluation</em>. Economics Working Paper
-ECO 2012/10. European University Institute.
+<div class="csl-left-margin">[11] </div><div
+class="csl-right-inline">Peter Reinhard Hansen and Allan Timmermann.
+Choice of sample split in out-of-sample forecast evaluation. European
+University Institute, 2012. Also circulated as CREATES Research Paper
+2012-43, Aarhus University.</div>
 </div>
 <div id="ref-hodrick1992dividend" class="csl-entry" role="listitem">
-Hodrick, Robert J. 1992. <span>“Dividend Yields and Expected Stock
-Returns: Alternative Procedures for Inference and Measurement.”</span>
-<em>The Review of Financial Studies</em> 5 (3): 357–86. <a
-href="https://doi.org/10.1093/rfs/5.3.357">https://doi.org/10.1093/rfs/5.3.357</a>.
+<div class="csl-left-margin">[12] </div><div
+class="csl-right-inline">Robert J. Hodrick. Dividend yields and expected
+stock returns: Alternative procedures for inference and measurement.
+<em>The Review of Financial Studies</em>, 5(3):357–386, 1992. doi: <a
+href="https://doi.org/10.1093/rfs/5.3.357">10.1093/rfs/5.3.357</a>.</div>
 </div>
 <div id="ref-kapoor2023leakage" class="csl-entry" role="listitem">
-Kapoor, Sayash, and Arvind Narayanan. 2023. <span>“Leakage and the
-Reproducibility Crisis in Machine-Learning-Based Science.”</span>
-<em>Patterns</em> 4 (9): 100804. <a
-href="https://doi.org/10.1016/j.patter.2023.100804">https://doi.org/10.1016/j.patter.2023.100804</a>.
+<div class="csl-left-margin">[13] </div><div
+class="csl-right-inline">Sayash Kapoor and Arvind Narayanan. Leakage and
+the reproducibility crisis in machine-learning-based science.
+<em>Patterns</em>, 4(9):100804, 2023. doi: <a
+href="https://doi.org/10.1016/j.patter.2023.100804">10.1016/j.patter.2023.100804</a>.</div>
 </div>
 <div id="ref-kaufman2012leakage" class="csl-entry" role="listitem">
-Kaufman, Shachar, Saharon Rosset, Claudia Perlich, and Ori Stitelman.
-2012. <span>“Leakage in Data Mining: Formulation, Detection, and
-Avoidance.”</span> <em>ACM Transactions on Knowledge Discovery from
-Data</em> 6 (4): 15:1–21. <a
-href="https://doi.org/10.1145/2382577.2382579">https://doi.org/10.1145/2382577.2382579</a>.
+<div class="csl-left-margin">[14] </div><div
+class="csl-right-inline">Shachar Kaufman, Saharon Rosset, Claudia
+Perlich, and Ori Stitelman. Leakage in data mining: Formulation,
+detection, and avoidance. <em>ACM Transactions on Knowledge Discovery
+from Data</em>, 6(4):15:1–15:21, 2012. doi: <a
+href="https://doi.org/10.1145/2382577.2382579">10.1145/2382577.2382579</a>.</div>
 </div>
 <div id="ref-lopezdeprado2018advances" class="csl-entry"
 role="listitem">
-López de Prado, Marcos. 2018. <em>Advances in Financial Machine
-Learning</em>. Wiley.
+<div class="csl-left-margin">[15] </div><div
+class="csl-right-inline">Marcos López de Prado. <em>Advances in
+financial machine learning</em>. Wiley, 2018. Ch. 7,
+<span>“Cross-Validation in Finance”</span>: why <span
+class="math inline">k</span>-fold CV fails in finance; purged <span
+class="math inline">k</span>-fold CV and embargo.</div>
 </div>
 <div id="ref-racine2000consistent" class="csl-entry" role="listitem">
-Racine, Jeffrey S. 2000. <span>“Consistent Cross-Validatory
-Model-Selection for Dependent Data: <span
-class="math inline">hv</span>-Block Cross-Validation.”</span>
-<em>Journal of Econometrics</em> 99 (1): 39–61. <a
-href="https://doi.org/10.1016/S0304-4076(00)00030-0">https://doi.org/10.1016/S0304-4076(00)00030-0</a>.
+<div class="csl-left-margin">[16] </div><div
+class="csl-right-inline">Jeffrey S. Racine. Consistent cross-validatory
+model-selection for dependent data: <span
+class="math inline">hv</span>-block cross-validation. <em>Journal of
+Econometrics</em>, 99(1):39–61, 2000. doi: <a
+href="https://doi.org/10.1016/S0304-4076(00)00030-0">10.1016/S0304-4076(00)00030-0</a>.</div>
 </div>
 <div id="ref-tashman2000out" class="csl-entry" role="listitem">
-Tashman, Leonard J. 2000. <span>“Out-of-Sample Tests of Forecasting
-Accuracy: An Analysis and Review.”</span> <em>International Journal of
-Forecasting</em> 16 (4): 437–50. <a
-href="https://doi.org/10.1016/S0169-2070(00)00065-0">https://doi.org/10.1016/S0169-2070(00)00065-0</a>.
+<div class="csl-left-margin">[17] </div><div
+class="csl-right-inline">Leonard J. Tashman. Out-of-sample tests of
+forecasting accuracy: An analysis and review. <em>International Journal
+of Forecasting</em>, 16(4):437–450, 2000. doi: <a
+href="https://doi.org/10.1016/S0169-2070(00)00065-0">10.1016/S0169-2070(00)00065-0</a>.</div>
 </div>
 </div>
 <section id="footnotes" class="footnotes footnotes-end-of-document"
